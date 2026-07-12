@@ -1,161 +1,3729 @@
-<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Interactive simulator showing how falling per-token prices collide with exploding token volume, projecting total inference spend through 2028.</h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanmarker Operations Master Suite</title>
+    <style>
+        :root {
+            --navy-950: #0a1128;
+            --navy-900: #101f42;
+            --navy-800: #1e293b;
+            --navy-700: #334155;
+            --navy-600: #475569;
+            --blue-600: #1d4ed8;
+            --blue-500: #2563eb;
+            --blue-100: #dbeafe;
+            --blue-50: #eff6ff;
+            --green-700: #15803d;
+            --green-600: #16a34a;
+            --green-100: #dcfce7;
+            --green-50: #f0fdf4;
+            --red-700: #b91c1c;
+            --red-600: #dc2626;
+            --red-100: #fee2e2;
+            --red-50: #fef2f2;
+            --amber-700: #b45309;
+            --amber-500: #f59e0b;
+            --amber-100: #fef3c7;
+            --amber-50: #fffbef;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-300: #cbd5e1;
+            --slate-800: #1e293b;
+            --slate-900: #0f172a;
+            --ink: #0f172a;
+            --border-color: #cbd5e1;
+        }
 
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px 24px;margin:0 0 1.5rem;">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <label style="font-size:13px;color:var(--text-secondary);width:150px;flex-shrink:0;">Token growth /yr</label>
-    <input type="range" min="5" max="30" step="1" value="12" id="growth" style="flex:1;" />
-    <span style="font-size:13px;font-weight:500;min-width:36px;text-align:right;" id="growth-out">12x</span>
-  </div>
-  <div style="display:flex;align-items:center;gap:10px;">
-    <label style="font-size:13px;color:var(--text-secondary);width:150px;flex-shrink:0;">Price decline /yr</label>
-    <input type="range" min="5" max="10" step="0.5" value="7" id="decline" style="flex:1;" />
-    <span style="font-size:13px;font-weight:500;min-width:36px;text-align:right;" id="decline-out">7x</span>
-  </div>
-  <div style="display:flex;align-items:center;gap:10px;">
-    <label style="font-size:13px;color:var(--text-secondary);width:150px;flex-shrink:0;">Avg GPU utilization</label>
-    <input type="range" min="20" max="80" step="5" value="45" id="util" style="flex:1;" />
-    <span style="font-size:13px;font-weight:500;min-width:36px;text-align:right;" id="util-out">45%</span>
-  </div>
-  <div style="display:flex;align-items:center;gap:10px;">
-    <label style="font-size:13px;color:var(--text-secondary);width:150px;flex-shrink:0;">Hidden infra overhead</label>
-    <input type="range" min="0" max="50" step="5" value="20" id="overhead" style="flex:1;" />
-    <span style="font-size:13px;font-weight:500;min-width:36px;text-align:right;" id="overhead-out">20%</span>
-  </div>
-</div>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:0 0 2rem;">
-  <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
-    <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">2028 annual spend</div>
-    <div style="font-size:24px;font-weight:500;" id="stat-spend">—</div>
-  </div>
-  <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
-    <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">Spend vs 2025</div>
-    <div style="font-size:24px;font-weight:500;" id="stat-mult">—</div>
-  </div>
-  <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
-    <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">Effective $/M tok 2028</div>
-    <div style="font-size:24px;font-weight:500;" id="stat-price">—</div>
-  </div>
-  <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
-    <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">Budget inflection</div>
-    <div style="font-size:24px;font-weight:500;" id="stat-inflect">—</div>
-  </div>
-</div>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f8fafc;
+            color: var(--ink);
+            font-size: 13px;
+            line-height: 1.5;
+            padding-bottom: 60px;
+        }
 
-<div style="display:flex;gap:16px;font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
-  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#2a78d6;"></span>List price (solid)</span>
-  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#eb6834;"></span>Effective cost, dashed (util + overhead)</span>
-</div>
-<div style="position:relative;width:100%;height:260px;margin-bottom:2rem;">
-  <canvas id="priceChart" role="img" aria-label="Line chart of per-million-token cost declining over time, log scale, list price versus effective cost">Per-token cost decay from 2025 through 2028.</canvas>
-</div>
+        header {
+            background-color: var(--navy-900);
+            color: #ffffff;
+            border-bottom: 2px solid var(--navy-950);
+            padding: 18px 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
 
-<div style="display:flex;gap:16px;font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
-  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#1baf7a;"></span>Total annual spend</span>
-  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#e34948;"></span>Inflection (marker)</span>
-</div>
-<div style="position:relative;width:100%;height:280px;">
-  <canvas id="budgetChart" role="img" aria-label="Line chart of total annualized inference spend through 2028 with a marker at the inflection point where volume growth overtakes price decline">Total budget curve 2025 through 2028.</canvas>
-</div>
+        .header-container {
+            max-width: 1500px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
 
-<div style="margin-top:1.5rem;">
-  <button onclick="sendPrompt('Given the current simulator settings, what levers would you pull first to flatten the total spend curve?')">Ask Claude to analyze this scenario ↗</button>
-</div>
+        .brand h1 {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script>
-const Q = [];
-for (let y = 2025; y <= 2028; y++) for (let q = 1; q <= 4; q++) Q.push("Q" + q + " '" + String(y).slice(2));
-const N = Q.length;
-const BASE_PRICE = 8.0;
-const PRICE_FLOOR = 0.05;
-const BASE_TOKENS = 50e9;
-const IDEAL_UTIL = 0.80;
+        .brand h1 span {
+            font-size: 11px;
+            background-color: var(--blue-600);
+            color: #ffffff;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            text-transform: uppercase;
+        }
 
-const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
-const css = getComputedStyle(document.documentElement);
-const inkMuted = css.getPropertyValue('--text-muted').trim() || '#898781';
-const grid = isDark ? '#2c2c2a' : '#e1e0d9';
+        .brand p {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
 
-function model() {
-  const g = +document.getElementById('growth').value;
-  const d = +document.getElementById('decline').value;
-  const u = +document.getElementById('util').value / 100;
-  const oh = +document.getElementById('overhead').value / 100;
-  const penalty = (IDEAL_UTIL / u) * (1 + oh);
-  const listP = [], effP = [], vol = [], spend = [];
-  for (let i = 0; i < N; i++) {
-    const t = i / 4;
-    const lp = Math.max(PRICE_FLOOR, BASE_PRICE / Math.pow(d, t));
-    listP.push(lp);
-    effP.push(lp * penalty);
-    vol.push(BASE_TOKENS * Math.pow(g, t));
-    spend.push(vol[i] / 1e6 * effP[i]);
-  }
-  let minI = 0;
-  for (let i = 1; i < N; i++) if (spend[i] < spend[minI]) minI = i;
-  return { g, d, listP, effP, spend, minI };
-}
+        .mode-toggle-group {
+            display: flex;
+            background-color: var(--navy-950);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid var(--navy-800);
+        }
 
-function fmtUsd(v) {
-  if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
-  if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
-  return '$' + Math.round(v / 1e3).toLocaleString() + 'K';
-}
+        .mode-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            padding: 6px 16px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
 
-const axisOpts = { ticks: { color: inkMuted, font: { size: 11 } }, grid: { color: grid } };
+        .mode-btn.active {
+            background-color: var(--blue-600);
+            color: #ffffff;
+        }
 
-const priceChart = new Chart(document.getElementById('priceChart'), {
-  type: 'line',
-  data: { labels: Q, datasets: [
-    { label: 'List', data: [], borderColor: '#2a78d6', borderWidth: 2, pointRadius: 0, tension: 0.3 },
-    { label: 'Effective', data: [], borderColor: '#eb6834', borderWidth: 2, borderDash: [6,4], pointRadius: 0, tension: 0.3 }
-  ]},
-  options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label + ': $' + c.parsed.y.toFixed(3) + '/M tok' } } },
-    scales: { x: { ticks: { color: inkMuted, font: { size: 11 }, autoSkip: false, maxRotation: 45 }, grid: { display: false } },
-      y: { type: 'logarithmic', ...axisOpts, ticks: { color: inkMuted, font: { size: 11 }, callback: v => '$' + (v >= 1 ? v.toFixed(0) : v.toFixed(2)) } } }
-  }
-});
+        main {
+            max-width: 1500px;
+            margin: 20px auto;
+            padding: 0 16px;
+        }
 
-const budgetChart = new Chart(document.getElementById('budgetChart'), {
-  type: 'line',
-  data: { labels: Q, datasets: [
-    { label: 'Annual spend', data: [], borderColor: '#1baf7a', backgroundColor: 'rgba(27,175,122,0.10)', fill: true, borderWidth: 2, pointRadius: [], pointBackgroundColor: [], tension: 0.3 }
-  ]},
-  options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => 'Spend: ' + fmtUsd(c.parsed.y) } } },
-    scales: { x: { ticks: { color: inkMuted, font: { size: 11 }, autoSkip: false, maxRotation: 45 }, grid: { display: false } },
-      y: { ...axisOpts, ticks: { color: inkMuted, font: { size: 11 }, callback: v => fmtUsd(v) } } }
-  }
-});
+        .controls-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--slate-200);
+            padding-bottom: 12px;
+        }
 
-function render() {
-  const m = model();
-  document.getElementById('growth-out').textContent = m.g + 'x';
-  document.getElementById('decline-out').textContent = m.d + 'x';
-  document.getElementById('util-out').textContent = document.getElementById('util').value + '%';
-  document.getElementById('overhead-out').textContent = document.getElementById('overhead').value + '%';
+        .tab-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
 
-  priceChart.data.datasets[0].data = m.listP;
-  priceChart.data.datasets[1].data = m.effP;
-  priceChart.update('none');
+        .tab-btn {
+            background-color: #ffffff;
+            border: 1px solid var(--slate-200);
+            color: var(--navy-600);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
 
-  const radii = new Array(N).fill(0);
-  const colors = new Array(N).fill('#1baf7a');
-  radii[m.minI] = 6;
-  colors[m.minI] = '#e34948';
-  budgetChart.data.datasets[0].data = m.spend;
-  budgetChart.data.datasets[0].pointRadius = radii;
-  budgetChart.data.datasets[0].pointBackgroundColor = colors;
-  budgetChart.update('none');
+        .tab-btn:hover {
+            border-color: var(--slate-300);
+            background-color: var(--slate-100);
+        }
 
-  document.getElementById('stat-spend').textContent = fmtUsd(m.spend[N-1] );
-  document.getElementById('stat-mult').textContent = Math.round(m.spend[N-1] / m.spend[0]).toLocaleString() + 'x';
-  document.getElementById('stat-price').textContent = '$' + m.effP[N-1].toFixed(2) + '/M';
-  document.getElementById('stat-inflect').textContent = m.minI === 0 ? 'Day one' : Q[m.minI];
-}
+        .tab-btn.active {
+            background-color: var(--blue-600);
+            color: #ffffff;
+            border-color: var(--blue-600);
+        }
 
-['growth','decline','util','overhead'].forEach(id => document.getElementById(id).addEventListener('input', render));
-render();
-</script>
+        .presets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .preset-card {
+            background: #ffffff;
+            border: 1.5px solid var(--slate-200);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .preset-card:hover {
+            border-color: var(--blue-500);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+        }
+
+        .preset-card.active {
+            border-color: var(--blue-600);
+            background-color: var(--blue-50);
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.12);
+        }
+
+        .preset-badge {
+            font-size: 9px;
+            text-transform: uppercase;
+            font-weight: 800;
+            background-color: var(--slate-200);
+            color: var(--navy-800);
+            padding: 2px 6px;
+            border-radius: 4px;
+            align-self: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .preset-card.active .preset-badge {
+            background-color: var(--blue-600);
+            color: #ffffff;
+        }
+
+        .preset-card.danger-preset .preset-badge {
+            background-color: var(--red-100);
+            color: var(--red-700);
+        }
+
+        .preset-card.warning-preset .preset-badge {
+            background-color: var(--amber-100);
+            color: var(--amber-700);
+        }
+
+        .preset-title {
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--navy-900);
+            margin-bottom: 6px;
+        }
+
+        .preset-desc {
+            font-size: 11px;
+            color: var(--navy-600);
+            line-height: 1.4;
+            margin-bottom: 12px;
+        }
+
+        .preset-metrics {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            border-top: 1px dashed var(--slate-200);
+            padding-top: 8px;
+            margin-top: auto;
+        }
+
+        .preset-metric-tag {
+            font-size: 10px;
+            font-weight: 700;
+            background: rgba(15, 23, 42, 0.04);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--navy-700);
+        }
+
+        .banner {
+            background-color: var(--blue-50);
+            border: 1px solid var(--blue-100);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .banner .icon {
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .banner h4 {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--blue-600);
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        .banner p {
+            font-size: 11px;
+            color: var(--navy-700);
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .kpi-card {
+            background-color: #ffffff;
+            border: 1px solid var(--slate-200);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .kpi-card.ok {
+            background-color: var(--green-50);
+            border-color: var(--green-100);
+        }
+
+        .kpi-card.bad {
+            background-color: var(--red-50);
+            border-color: var(--red-100);
+        }
+
+        .kpi-card .k {
+            font-size: 10px;
+            font-weight: 800;
+            color: var(--navy-600);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .kpi-card .v {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--navy-900);
+            margin: 6px 0 2px;
+        }
+
+        .kpi-card .n {
+            font-size: 10px;
+            color: var(--navy-700);
+        }
+
+        .panel {
+            background-color: #ffffff;
+            border: 1px solid var(--slate-200);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--slate-100);
+            padding-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .panel-title {
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--navy-900);
+        }
+
+        .panel-subtitle {
+            font-size: 11px;
+            color: var(--navy-600);
+            margin-top: 2px;
+        }
+
+        .drivers-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .drivers-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .driver-card {
+            background-color: var(--blue-50);
+            border: 1px solid var(--blue-100);
+            padding: 16px;
+            border-radius: 12px;
+        }
+
+        .driver-card label {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: var(--blue-600);
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .driver-card input {
+            width: 100%;
+            padding: 8px 12px;
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--blue-600);
+            border: 2px solid var(--blue-100);
+            border-radius: 8px;
+            background-color: #ffffff;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .driver-card input:focus {
+            border-color: var(--blue-500);
+        }
+
+        .alloc-box {
+            background-color: var(--slate-100);
+            border: 1px solid var(--slate-200);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .alloc-bar {
+            display: flex;
+            height: 28px;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            border: 1px solid var(--slate-200);
+        }
+
+        .alloc-bar-segment {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 700;
+            transition: width 0.2s;
+        }
+
+        .alloc-bar-segment.pal { background-color: #2E75B6; }
+        .alloc-bar-segment.pro { background-color: #1F3864; }
+        .alloc-bar-segment.max { background-color: #70AD47; }
+
+        .alloc-row {
+            display: grid;
+            grid-template-columns: 120px 1fr 60px;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 8px;
+        }
+
+        .alloc-row label {
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .alloc-row .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .alloc-row input[type=range] {
+            accent-color: var(--blue-600);
+            width: 100%;
+        }
+
+        .alloc-row input[type=number] {
+            width: 100%;
+            padding: 4px;
+            text-align: right;
+            border: 1px solid var(--slate-300);
+            border-radius: 4px;
+            font-weight: 700;
+        }
+
+        .scrollable-wrapper {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid var(--slate-200);
+            margin-top: 12px;
+            background-color: #ffffff;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: right;
+            font-size: 11px;
+            table-layout: auto;
+        }
+
+        th {
+            background-color: var(--navy-900);
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 10px 12px;
+            border: 1px solid var(--navy-800);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 10px 12px;
+            border: 1px solid var(--slate-200);
+            white-space: nowrap;
+            font-weight: 500;
+            transition: background-color 0.15s;
+        }
+
+        td:first-child, th:first-child {
+            text-align: left;
+            font-weight: 700;
+            position: sticky;
+            left: 0;
+            background-color: #ffffff;
+            z-index: 10;
+            border-right: 2px solid var(--slate-200);
+        }
+
+        /* Soft heat-map coloring for cash flows & balance results (Req 2) */
+        .hm-neg-deep { background-color: #fca5a5 !important; color: #7f1d1d !important; }
+        .hm-neg-soft { background-color: #fee2e2 !important; color: #991b1b !important; }
+        .hm-neg-trace { background-color: #fef2f2 !important; color: #b91c1c !important; }
+        .hm-neutral { background-color: #ffffff !important; color: var(--navy-900) !important; }
+        .hm-pos-trace { background-color: #f0fdf4 !important; color: #15803d !important; }
+        .hm-pos-soft { background-color: #dcfce7 !important; color: #166534 !important; }
+        .hm-pos-deep { background-color: #bbf7d0 !important; color: #14532d !important; }
+
+        tr:nth-child(even) td:not([class*="hm-"]) {
+            background-color: #fafbfc;
+        }
+
+        tr.header-row td {
+            background-color: var(--slate-100);
+            font-weight: 800;
+            text-align: left;
+            text-transform: uppercase;
+            font-size: 10px;
+            color: var(--navy-900);
+            border-bottom: 2px solid var(--slate-200);
+            padding: 10px 12px;
+        }
+
+        tr.total-row td {
+            font-weight: 800;
+            border-top: 2px solid var(--slate-300);
+            border-bottom: 2px solid var(--slate-300);
+        }
+
+        td.stockout-cell {
+            background-color: var(--red-100) !important;
+            color: var(--red-700);
+            font-weight: 700;
+        }
+
+        td.alert-cell {
+            background-color: var(--amber-100) !important;
+            color: var(--amber-700);
+            font-weight: 700;
+        }
+
+        td.zero-cell {
+            background-color: var(--green-50);
+            color: var(--green-700);
+            font-weight: 600;
+        }
+
+        td input {
+            width: 72px;
+            padding: 4px;
+            border: 1px solid var(--slate-300);
+            border-radius: 4px;
+            text-align: right;
+            font-weight: 700;
+            outline: none;
+        }
+
+        td select {
+            padding: 4px;
+            border: 1px solid var(--slate-300);
+            border-radius: 4px;
+            font-weight: 700;
+            background-color: #ffffff;
+            outline: none;
+        }
+
+        td.editable-cell input {
+            background-color: var(--blue-50);
+            border-color: var(--blue-200);
+            color: var(--blue-600);
+        }
+
+        .graph-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 1050px) {
+            .graph-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        svg[data-sankey] {
+            width: 100%;
+            height: auto;
+            background-color: #ffffff;
+        }
+
+        svg[data-sankey] .lk {
+            opacity: 0.45;
+            transition: opacity 0.2s;
+        }
+
+        svg[data-sankey] .lk:hover, svg[data-sankey] .lk.hot {
+            opacity: 0.95;
+        }
+
+        svg[data-sankey] .lk.dim {
+            opacity: 0.06;
+        }
+
+        svg[data-sankey] rect.nd {
+            cursor: pointer;
+            transition: fill 0.2s;
+        }
+
+        .story-container {
+            margin-top: 16px;
+        }
+
+        .story-cards {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding: 8px 4px;
+            margin-bottom: 12px;
+        }
+
+        .story-card {
+            flex: 0 0 190px;
+            background-color: #ffffff;
+            border: 1.5px solid var(--slate-200);
+            border-radius: 10px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.25s;
+        }
+
+        .story-card.past {
+            opacity: 0.45;
+        }
+
+        .story-card.active {
+            border-color: var(--blue-600);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+            transform: translateY(-2px);
+            opacity: 1;
+        }
+
+        .story-card .step-meta {
+            font-size: 8px;
+            text-transform: uppercase;
+            font-weight: 800;
+            color: var(--blue-600);
+        }
+
+        .story-card .step-title {
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--navy-900);
+            margin: 2px 0 4px;
+        }
+
+        .story-card table {
+            width: 100%;
+            font-size: 9px;
+        }
+
+        .story-card td {
+            padding: 2px 0;
+            border: none;
+            background: none !important;
+        }
+
+        .story-card td:last-child {
+            font-weight: 700;
+            text-align: right;
+        }
+
+        .bars-runway {
+            display: flex;
+            align-items: flex-end;
+            height: 90px;
+            gap: 6px;
+            border-bottom: 1px solid var(--slate-200);
+            padding-bottom: 4px;
+        }
+
+        .bar-col {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        .bar-pill {
+            width: 100%;
+            border-radius: 4px 4px 0 0;
+            min-height: 2px;
+            transition: height 0.3s;
+        }
+
+        .bar-pill.positive { background-color: var(--blue-600); }
+        .bar-pill.negative { background-color: var(--red-600); }
+
+        .bar-label {
+            font-size: 8px;
+            font-weight: 700;
+            color: var(--navy-600);
+            text-align: center;
+            margin-top: 4px;
+            line-height: 1.1;
+        }
+
+        .advisory-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .advisory-item {
+            background-color: var(--slate-100);
+            padding: 14px;
+            border-radius: 10px;
+            border: 1px solid var(--slate-200);
+            transition: all 0.25s;
+        }
+
+        .advisory-header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            cursor: pointer;
+        }
+
+        .advisory-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .advisory-item.red {
+            background-color: var(--red-50);
+            border-color: var(--red-100);
+        }
+
+        .advisory-item.red .badge {
+            background-color: var(--red-600);
+            color: #ffffff;
+        }
+
+        .advisory-item.amber {
+            background-color: var(--amber-50);
+            border-color: var(--amber-100);
+        }
+
+        .advisory-item.amber .badge {
+            background-color: var(--amber-500);
+            color: #ffffff;
+        }
+
+        .advisory-item.green {
+            background-color: var(--green-50);
+            border-color: var(--green-100);
+        }
+
+        .advisory-item.green .badge {
+            background-color: var(--green-600);
+            color: #ffffff;
+        }
+
+        .advisory-item .badge {
+            padding: 2px 6px;
+            font-size: 9px;
+            font-weight: 800;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .advisory-title-txt {
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--navy-900);
+        }
+
+        .advisory-expand-btn {
+            background: rgba(15, 23, 42, 0.05);
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            color: var(--navy-700);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .advisory-expand-btn:hover {
+            background: rgba(15, 23, 42, 0.1);
+        }
+
+        .advisory-body {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed rgba(15, 23, 42, 0.1);
+            display: none;
+        }
+
+        .advisory-body.expanded {
+            display: block;
+        }
+
+        .advisory-body p {
+            font-size: 11px;
+            color: var(--navy-700);
+            line-height: 1.4;
+        }
+
+        .yoy-badge {
+            font-size: 8px;
+            font-weight: 700;
+            margin-left: 4px;
+            padding: 1px 3px;
+            border-radius: 3px;
+        }
+        .yoy-badge.up {
+            background-color: var(--green-100);
+            color: var(--green-700);
+        }
+        .yoy-badge.down {
+            background-color: var(--red-100);
+            color: var(--red-700);
+        }
+
+        #interactive-tooltip {
+            position: fixed;
+            background-color: var(--navy-950);
+            color: #ffffff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 10px;
+            max-width: 250px;
+            pointer-events: none;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+        }
+
+        .scenario-manager-section {
+            background-color: #ffffff;
+            border: 1px solid var(--slate-200);
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 24px;
+        }
+
+        .scenario-dashboard {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 850px) {
+            .scenario-dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .scenario-control-box {
+            background: var(--slate-50);
+            border: 1px solid var(--slate-200);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .scenario-slots-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid var(--slate-200);
+            border-radius: 8px;
+            padding: 8px;
+            background: #ffffff;
+        }
+
+        .scenario-slot-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: var(--slate-50);
+            border: 1px solid var(--slate-200);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .scenario-slot-item:hover {
+            border-color: var(--blue-500);
+            background: var(--blue-50);
+        }
+
+        .scenario-slot-item.selected {
+            border-color: var(--blue-600);
+            background: var(--blue-100);
+        }
+
+        .scenario-slot-name {
+            font-weight: 700;
+            font-size: 11px;
+            color: var(--navy-900);
+        }
+
+        .scenario-slot-meta {
+            font-size: 9px;
+            color: var(--navy-600);
+        }
+
+        .scenario-action-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .btn-action {
+            background-color: var(--blue-600);
+            color: #ffffff;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 11px;
+            cursor: pointer;
+            transition: background-color 0.15s;
+            text-align: center;
+        }
+
+        .btn-action:hover {
+            background-color: #1d4ed8;
+        }
+
+        .btn-secondary {
+            background-color: #ffffff;
+            border: 1px solid var(--slate-300);
+            color: var(--navy-700);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-align: center;
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--slate-100);
+        }
+
+        .btn-danger {
+            background-color: #ffffff;
+            border: 1px solid var(--red-200);
+            color: var(--red-700);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-align: center;
+        }
+
+        .btn-danger:hover {
+            background-color: var(--red-50);
+            border-color: var(--red-300);
+        }
+
+        .goalseek-card {
+            background-color: var(--amber-50);
+            border: 1px solid var(--amber-100);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .goalseek-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        @media (max-width: 600px) {
+            .goalseek-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .goalseek-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .goalseek-field label {
+            font-size: 9px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: var(--amber-700);
+        }
+
+        .goalseek-field input {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid var(--amber-100);
+            border-radius: 6px;
+            font-weight: 700;
+            outline: none;
+        }
+
+        .globals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .global-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .global-field label {
+            font-size: 9px;
+            font-weight: 800;
+            color: var(--navy-600);
+            text-transform: uppercase;
+        }
+
+        .global-field input {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid var(--slate-300);
+            border-radius: 6px;
+            font-weight: 700;
+            outline: none;
+        }
+
+        .hidden { display: none !important; }
+        .reset-btn-container {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .help-tip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            background-color: var(--blue-100);
+            color: var(--blue-600);
+            border-radius: 50%;
+            font-size: 9px;
+            font-weight: 800;
+            cursor: help;
+            margin-left: 4px;
+        }
+
+        #toast-manager-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 1100;
+        }
+
+        .custom-toast {
+            background-color: var(--navy-950);
+            color: #ffffff;
+            padding: 12px 18px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 11.5px;
+            font-weight: 600;
+            border-left: 4px solid var(--blue-500);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: slideInToast 0.25s ease-out forwards;
+        }
+
+        .custom-toast.error {
+            border-left-color: var(--red-600);
+        }
+
+        .custom-toast.success {
+            border-left-color: var(--green-600);
+        }
+
+        @keyframes slideInToast {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .ai-grid {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .ai-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .ai-status-card {
+            background-color: var(--navy-900);
+            color: #ffffff;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            border: 1px solid var(--navy-950);
+        }
+
+        .ai-status-header {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #94a3b8;
+            border-bottom: 1px solid var(--navy-800);
+            padding-bottom: 8px;
+        }
+
+        .ai-status-metric {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11.5px;
+            color: #e2e8f0;
+        }
+
+        .ai-status-metric span:last-child {
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .ai-chat-console {
+            background: #ffffff;
+            border: 1px solid var(--slate-200);
+            border-radius: 12px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-height: 480px;
+        }
+
+        .ai-chat-history {
+            flex-grow: 1;
+            overflow-y: auto;
+            border: 1px solid var(--slate-200);
+            border-radius: 8px;
+            padding: 14px;
+            background-color: var(--slate-100);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 400px;
+        }
+
+        .chat-bubble {
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.45;
+            max-width: 85%;
+        }
+
+        .chat-bubble.assistant {
+            background-color: #ffffff;
+            color: var(--navy-950);
+            align-self: flex-start;
+            border: 1px solid var(--slate-200);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .chat-bubble.user {
+            background-color: var(--blue-600);
+            color: #ffffff;
+            align-self: flex-end;
+        }
+
+        .chat-bubble.system {
+            background-color: var(--amber-50);
+            color: var(--amber-700);
+            border: 1px solid var(--amber-100);
+            align-self: center;
+            max-width: 95%;
+            text-align: center;
+        }
+
+        .ai-prompt-shortcuts {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .ai-shortcut-btn {
+            background-color: var(--blue-50);
+            color: var(--blue-600);
+            border: 1px solid var(--blue-100);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 10.5px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .ai-shortcut-btn:hover {
+            background-color: var(--blue-100);
+            border-color: var(--blue-600);
+        }
+
+        .ai-input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .ai-textarea {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid var(--slate-300);
+            border-radius: 8px;
+            font-size: 12px;
+            outline: none;
+            resize: none;
+            height: 48px;
+            transition: border-color 0.15s;
+        }
+
+        .ai-textarea:focus {
+            border-color: var(--blue-600);
+        }
+
+        .ai-toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: var(--slate-100);
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--slate-200);
+        }
+
+        /* Custom Grounding switch */
+        .grounding-switch {
+            position: relative;
+            display: inline-block;
+            width: 34px;
+            height: 20px;
+        }
+
+        .grounding-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider-round {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--slate-300);
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider-round:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider-round {
+            background-color: var(--blue-600);
+        }
+
+        input:checked + .slider-round:before {
+            transform: translateX(14px);
+        }
+
+        .ai-citations-box {
+            font-size: 10px;
+            background-color: var(--slate-50);
+            border-top: 1px solid var(--slate-200);
+            padding: 6px 12px;
+            border-radius: 0 0 8px 8px;
+            margin-top: -8px;
+        }
+
+        .ai-citation-link {
+            color: var(--blue-600);
+            text-decoration: underline;
+            margin-right: 8px;
+        }
+
+        .ai-citation-link:hover {
+            color: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-container">
+            <div class="brand">
+                <h1>Scanmarker Operations <span>Master Suite</span></h1>
+                <p>Consolidated Working Capital &amp; Multi-Channel Operational Solver (SSOT-Matched Baseline)</p>
+            </div>
+            <div class="mode-toggle-group">
+                <button onclick="setEngineMode('slim')" id="mode-btn-slim" class="mode-btn active">⚡ Slim Mode (Seasonality Formula)</button>
+                <button onclick="setEngineMode('extensive')" id="mode-btn-extensive" class="mode-btn">📋 Extensive Grid (Cell Edit Override)</button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <h2>Interactive Pre-Loaded Scenarios</h2>
+        <div class="presets-grid">
+            <div onclick="loadScenario('base')" id="preset-card-base" class="preset-card active">
+                <div>
+                    <span class="preset-badge">Optimal Base Plan</span>
+                    <h3 class="preset-title">All-Channel Optimum</h3>
+                    <p class="preset-desc">The validated strategic optimum from the grid sweep. Balances all-channel product pipelines without starving PRO or leaving MAX inventory trailing.</p>
+                </div>
+                <div class="preset-metrics">
+                    <span class="preset-metric-tag">17,000 Units</span>
+                    <span class="preset-metric-tag">40% PAL / 40% PRO / 20% MAX</span>
+                    <span class="preset-metric-tag">All-Channel Demands</span>
+                </div>
+            </div>
+
+            <div onclick="loadScenario('conserve')" id="preset-card-conserve" class="preset-card">
+                <div>
+                    <span class="preset-badge">Conservation Sizing</span>
+                    <h3 class="preset-title">Conserve Working Capital</h3>
+                    <p class="preset-desc">Downsizes production metrics to compress peak-funding outlays while preserving the optimal 40/40/20 balanced portfolio ratio.</p>
+                </div>
+                <div class="preset-metrics">
+                    <span class="preset-metric-tag">13,000 Units</span>
+                    <span class="preset-metric-tag">40% / 40% / 20% Mix</span>
+                    <span class="preset-metric-tag">Reduced Trough</span>
+                </div>
+            </div>
+
+            <div onclick="loadScenario('optimized')" id="preset-card-optimized" class="preset-card warning-preset">
+                <div>
+                    <span class="preset-badge">Legacy Obsolete</span>
+                    <h3 class="preset-title">Amazon-Only Mix [Obsolete]</h3>
+                    <p class="preset-desc">The outdated Amazon-only calibration. Warning: Under-allocates PRO, starving up to 45% of off-Amazon retail demand channels.</p>
+                </div>
+                <div class="preset-metrics">
+                    <span class="preset-metric-tag">13,000 Units</span>
+                    <span class="preset-metric-tag">50% PAL / 25% PRO / 25% MAX</span>
+                    <span class="preset-metric-tag">Warning Alert</span>
+                </div>
+            </div>
+
+            <div onclick="loadScenario('zero')" id="preset-card-zero" class="preset-card danger-preset">
+                <div>
+                    <span class="preset-badge">Cancellation</span>
+                    <h3 class="preset-title">Cancel All PO Batches</h3>
+                    <p class="preset-desc">Completely cancels downstream receipts to track the behavior of existing snapshot inventory and pure cash burn depletions.</p>
+                </div>
+                <div class="preset-metrics">
+                    <span class="preset-metric-tag">0 Units</span>
+                    <span class="preset-metric-tag">No Capital Spend</span>
+                    <span class="preset-metric-tag">Physical Stockouts</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="banner" id="mode-warning-banner">
+            <div class="icon">ℹ️</div>
+            <div>
+                <h4 id="banner-mode-title">Forecasting Active: Seasonality Formula (Slim)</h4>
+                <p id="banner-mode-desc">Monthly demand scales automatically using deseasonalized baseline values multiplied by historical index ratios. To write manual adjustments, switch to Extensive mode above.</p>
+            </div>
+        </div>
+
+        <div class="controls-nav">
+            <div class="tab-group">
+                <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="tab-btn active">📊 Unified Dashboard</button>
+                <button onclick="switchTab('grid')" id="tab-btn-grid" class="tab-btn">📆 Monthly Demand &amp; Receipts</button>
+                <button onclick="switchTab('economics')" id="tab-btn-economics" class="tab-btn">💸 SKU Economics &amp; Assumptions</button>
+                <button onclick="switchTab('report')" id="tab-btn-report" class="tab-btn">📋 Risk Audit &amp; Sensitivity</button>
+                <button onclick="switchTab('ai')" id="tab-btn-ai" class="tab-btn">🤖 AI Copilot &amp; Intelligence</button>
+            </div>
+        </div>
+
+        <div class="kpi-grid" id="kpis-container">
+            <!-- Populated dynamically via JS -->
+        </div>
+
+        <!-- =================== TAB 1: UNIFIED DASHBOARD =================== -->
+        <div id="tab-content-dashboard" class="tab-pane">
+            <div class="drivers-container">
+                <!-- Dual-Directional Master Sizing Drivers -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3 class="panel-title">Production Sizing Drivers</h3>
+                            <p class="panel-subtitle">Dual-directional sliders. Units update budget; budget back-calculates units (E11).</p>
+                        </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <div class="driver-card">
+                            <label>PO Commitment (Total Units)</label>
+                            <input type="number" id="master-units-input" value="17000" step="100" oninput="handleMasterDriver('units', this.value)">
+                        </div>
+                        <div class="driver-card">
+                            <label>PO Budget Limit (Total USD)</label>
+                            <input type="number" id="master-budget-input" value="625600" step="1000" oninput="handleMasterDriver('budget', this.value)">
+                        </div>
+                        <div class="reset-btn-container">
+                            <button onclick="resetBlock('drivers')" class="btn-secondary">↺ Reset Drivers</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rebalancing 100% Allocation Mix Lock -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3 class="panel-title">Product Allocation Mix</h3>
+                            <p class="panel-subtitle">Remaining products rebalance in proportion so allocation locks to exactly 100%.</p>
+                        </div>
+                    </div>
+                    <div class="alloc-box">
+                        <div class="alloc-bar" id="alloc-bar-track"></div>
+                        <div class="alloc-rows" id="alloc-inputs-rows"></div>
+                    </div>
+                    <div class="reset-btn-container">
+                        <button onclick="resetBlock('allocations')" class="btn-secondary">↺ Reset Allocations</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Graphical Views (Sankey Flow + Cash Runway) -->
+            <div class="graph-grid">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3 class="panel-title">Interactive Financial Flow Model</h3>
+                            <p class="panel-subtitle">Path length vector flows tracing gross top-line through all cost layers to bottom-line opex (E8, E9).</p>
+                        </div>
+                    </div>
+                    <div id="sankey-chart-wrapper"></div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3 class="panel-title">Running Cumulative Cash Balance</h3>
+                            <p class="panel-subtitle">Tracks maximum working capital depth. Red segments denote funding required.</p>
+                        </div>
+                    </div>
+                    <div class="bars-runway" id="cash-runway-bars"></div>
+                </div>
+            </div>
+
+            <!-- Dynamic Dashboard Summary Matrix -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Operational Summary Plan</h3>
+                        <p class="panel-subtitle">High level components of currently active parameters and first stockout dates.</p>
+                    </div>
+                </div>
+                <div class="scrollable-wrapper">
+                    <table id="dashboard-summary-table"></table>
+                </div>
+            </div>
+        </div>
+
+        <!-- =================== TAB 2: DETAILED MONTHLY PLANNING GRID =================== -->
+        <div id="tab-content-grid" class="tab-pane hidden">
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Operational Flow Ledger</h3>
+                        <p class="panel-subtitle">Granular month-by-month values. Blue elements are editable when "Extensive Mode" is active.</p>
+                    </div>
+                    <div style="display:flex; gap: 8px;">
+                        <button onclick="resetManualCells()" class="btn-secondary">↺ Reset Manual overrides</button>
+                        <button onclick="copyForGoogleSheets()" class="btn-secondary">📋 Copy for Google Sheets</button>
+                        <button onclick="exportCSV()" class="btn-action">💾 Export to CSV</button>
+                    </div>
+                </div>
+                <div class="scrollable-wrapper">
+                    <table id="detailed-planning-grid"></table>
+                </div>
+            </div>
+        </div>
+
+        <!-- =================== TAB 3: GLOBAL PARAMETERS & ECONOMICS =================== -->
+        <div id="tab-content-economics" class="tab-pane hidden">
+            <!-- Global Variables Form Grid -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Global Operational Assumptions</h3>
+                        <p class="panel-subtitle">Adjust core operational, burn, and lag collection percentages.</p>
+                    </div>
+                    <button onclick="resetBlock('globals')" class="btn-secondary">↺ Reset Assumptions</button>
+                </div>
+                <div class="globals-grid">
+                    <div class="global-field">
+                        <label>Opening Bank Cash ($)</label>
+                        <input type="number" id="input-openCash" value="0" oninput="handleGlobalInput()">
+                    </div>
+                    <div class="global-field">
+                        <label>Monthly Stable Burn ($)</label>
+                        <input type="number" id="input-burn" value="140000" step="5000" oninput="handleGlobalInput()">
+                    </div>
+                    <div class="global-field">
+                        <label>Extra Temporary OpEx ($)</label>
+                        <input type="number" id="input-opex" value="0" step="1000" oninput="handleGlobalInput()">
+                    </div>
+                    <div class="global-field">
+                        <label>Demand Growth (%)</label>
+                        <input type="number" id="input-grow" value="0" step="1" oninput="handleGlobalInput()">
+                    </div>
+                    <div class="global-field">
+                        <label>Amazon DSP Ads ($/mo) <span class="help-tip" data-t="Fixed display advertising running monthly. Fully loaded into expenses (E3).">?</span></label>
+                        <input type="number" id="input-dspMonthly" value="5000" step="500" oninput="handleGlobalInput()">
+                    </div>
+                    <div class="global-field">
+                        <label>PO Deposit split (%)</label>
+                        <input type="number" id="input-dep" value="30" step="5" oninput="handleGlobalInput()">
+                    </div>
+                    <div class="global-field">
+                        <label>Promo + VAT load (%)</label>
+                        <input type="number" id="input-other" value="2.6" step="0.1" oninput="handleGlobalInput()">
+                    </div>
+                    <div class="global-field">
+                        <label>Lag 0 (In-Month %)</label>
+                        <input type="number" id="input-col0" value="70" step="5" oninput="handleGlobalInput()">
+                    </div>
+                    <div class="global-field">
+                        <label>Lag 1 (Month +1 %)</label>
+                        <input type="number" id="input-col1" value="24" step="5" oninput="handleGlobalInput()">
+                    </div>
+                    <div class="global-field">
+                        <label>Landed Buffer ($/unit) <span class="help-tip" data-t="Logistics surcharge applied on top of unit manufacturing cost. Checked against commitments, COGS, and blended values (E11).">?</span></label>
+                        <input type="number" id="input-landedBuffer" value="0" step="0.5" oninput="handleGlobalInput()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- SKU Parameter Editor -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Per-SKU Unit Level Economics</h3>
+                        <p class="panel-subtitle">Modify list pricing, realization averages, unit costs, and Amazon commissions.</p>
+                    </div>
+                    <button onclick="resetBlock('skus')" class="btn-secondary">↺ Reset SKU parameters</button>
+                </div>
+                <div class="scrollable-wrapper">
+                    <table id="sku-parameters-table"></table>
+                </div>
+            </div>
+        </div>
+
+        <!-- =================== TAB 4: RISK AUDIT & SENSITIVITY =================== -->
+        <div id="tab-content-report" class="tab-pane hidden">
+            <!-- Visual Goal-Seek Engine (E13) -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Trough Goal-Seek Optimizer</h3>
+                        <p class="panel-subtitle">Finds the maximum possible PO units to ensure the cash balance never drops below your target.</p>
+                    </div>
+                </div>
+                <div class="goalseek-card">
+                    <div class="goalseek-grid">
+                        <div class="goalseek-field">
+                            <label>Target Minimum Cash Trough ($)</label>
+                            <input type="number" id="input-goalseek-target" value="0">
+                        </div>
+                        <div class="goalseek-field">
+                            <label>Resulting PO Sizing</label>
+                            <input type="text" id="output-goalseek-result" value="Run calculation" readonly style="background-color: var(--slate-100); color: var(--navy-800);">
+                        </div>
+                        <button onclick="runGoalSeek()" class="btn-action" style="margin: 0;">⚡ Solve Optimum Sizing</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Variable Sensitivity Impact Analysis (E5 Sandbox Sync) -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Audit Impact Sandbox Matrix</h3>
+                        <p class="panel-subtitle">Simulates changing core assumptions using a unified, consistent calculation matrix.</p>
+                    </div>
+                </div>
+                <div class="scrollable-wrapper">
+                    <table id="sensitivity-impact-table"></table>
+                </div>
+            </div>
+
+            <!-- Narrative Interactive Step Horserace (E16) -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Scenario Horserace Timeline</h3>
+                        <p class="panel-subtitle">Flourish-style track: trace revenue growth vs cumulative cash runways. Keyboard left/right arrows step through.</p>
+                    </div>
+                    <button onclick="playRaceTimeline(true)" class="btn-secondary">▶ Auto Replay Story</button>
+                </div>
+                <div class="story-container">
+                    <div class="story-cards" id="horserace-cards-log"></div>
+                    <div id="horserace-canvas-view"></div>
+                </div>
+            </div>
+
+            <!-- Dynamic Automated Advisories with [+] Toggle (Req 3) -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Automated Governance Advisories</h3>
+                        <p class="panel-subtitle">Dynamic checks fully updating on parameter shifts. Expands to expose complete actionable insight.</p>
+                    </div>
+                </div>
+                <div class="advisory-list" id="audit-alerts-list"></div>
+            </div>
+
+            <!-- Saved Scenarios Manager Panel with Button Operations (Req 4) -->
+            <div class="scenario-manager-section">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">Scenario File Manager</h3>
+                        <p class="panel-subtitle">Save custom operational configurations directly to local storage to compare and verify models.</p>
+                    </div>
+                </div>
+                <div class="scenario-dashboard">
+                    <div class="scenario-control-box">
+                        <label style="font-size: 10px; font-weight: 800; color: var(--navy-700); text-transform: uppercase;">Save Current State</label>
+                        <input type="text" id="input-save-scenario-name" placeholder="Scenario name (e.g. Q3 High Growth)" style="width: 100%; padding: 8px; border: 1px solid var(--slate-300); border-radius: 6px; outline: none;">
+                        <button onclick="saveCurrentScenario()" class="btn-action">💾 Save Current state</button>
+                        
+                        <div style="border-top: 1px solid var(--slate-200); padding-top: 12px; margin-top: 4px;">
+                            <label style="font-size: 10px; font-weight: 800; color: var(--navy-700); text-transform: uppercase; display: block; margin-bottom: 8px;">Selected Slot Actions</label>
+                            <div class="scenario-slots-container" id="scenario-slots-list-box">
+                                <!-- Populated dynamically -->
+                            </div>
+                            <div class="scenario-action-bar">
+                                <button onclick="loadSelectedScenarioSlot()" class="btn-secondary" style="flex: 1;">Load</button>
+                                <button onclick="deleteSelectedScenarioSlot()" class="btn-danger" style="flex: 1;">Delete</button>
+                            </div>
+                        </div>
+
+                        <div style="border-top: 1px solid var(--slate-200); padding-top: 12px;">
+                            <label style="font-size: 10px; font-weight: 800; color: var(--navy-700); text-transform: uppercase; display: block; margin-bottom: 8px;">File Exchange</label>
+                            <div style="display: flex; gap: 8px;">
+                                <button onclick="exportStateJSON()" class="btn-secondary" style="flex: 1; font-size: 10px;">📤 Export JSON</button>
+                                <button onclick="triggerJSONImport()" class="btn-secondary" style="flex: 1; font-size: 10px;">📥 Import JSON</button>
+                            </div>
+                            <input type="file" id="import-json-file" accept=".json" style="display:none;" onchange="handleJSONImport(event)">
+                        </div>
+                    </div>
+                    <div>
+                        <p style="font-size: 11px; font-weight: 700; color: var(--navy-600); margin-bottom: 8px;">Saved Database Comparison Matrix</p>
+                        <div class="scrollable-wrapper" style="margin-top: 0;">
+                            <table id="saved-scenarios-comparison">
+                                <!-- Loaded dynamically -->
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =================== TAB 5: LLM COPILOT & AI SUITE =================== -->
+        <div id="tab-content-ai" class="tab-pane hidden">
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h3 class="panel-title">🤖 Active AI Strategic CFO Consultant</h3>
+                        <p class="panel-subtitle">Inspect operations parameters, forecast risks, draft memorandum reports, and research live macro rates.</p>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <label style="font-size: 10px; font-weight: 800; color: var(--navy-700); text-transform: uppercase;">Custom API Key (Optional):</label>
+                        <input type="password" id="input-ai-api-key" placeholder="Canvas Key Auto-Injected" style="padding: 4px 8px; font-size: 11px; border: 1px solid var(--slate-300); border-radius: 4px; outline: none; width: 180px;">
+                    </div>
+                </div>
+
+                <div class="ai-grid">
+                    <!-- Left: Current context the AI sees (Grounding details) -->
+                    <div class="ai-status-card">
+                        <div class="ai-status-header">Current Solver Context</div>
+                        <div class="ai-status-metric"><span>FY Revenue:</span><span id="ai-ctx-revenue">$0</span></div>
+                        <div class="ai-status-metric"><span>FY Gross Profit:</span><span id="ai-ctx-gp">$0</span></div>
+                        <div class="ai-status-metric"><span>Max Cash Trough:</span><span id="ai-ctx-trough">$0</span></div>
+                        <div class="ai-status-metric"><span>Lost Sales Value:</span><span id="ai-ctx-lost-sales">$0</span></div>
+                        <div class="ai-status-metric"><span>PO Volume Size:</span><span id="ai-ctx-po-size">0 units</span></div>
+                        <div class="ai-status-metric"><span>Allocations:</span><span id="ai-ctx-allocs">PAL/PRO/MAX</span></div>
+                        <div class="ai-status-metric"><span>Landed Surcharge:</span><span id="ai-ctx-landed">$0/unit</span></div>
+                        <div style="font-size: 10px; color: #94a3b8; border-top: 1px solid var(--navy-800); padding-top: 8px; line-height: 1.4;">
+                            💡 Every parameter modification in the suite automatically updates the context loaded by Gemini.
+                        </div>
+                    </div>
+
+                    <!-- Right: Chat Interface -->
+                    <div class="ai-chat-console">
+                        <div class="ai-chat-history" id="ai-chat-log">
+                            <div class="chat-bubble assistant">
+                                Hello! I am your AI Sourcing and Chief Financial Officer. I have direct access to your current scenario parameters. 
+                                <br><br>
+                                How can I assist you with your procurement sizing, factory deposits renegotiation, or working capital planning today?
+                            </div>
+                        </div>
+
+                        <!-- Citations container if search grounding is active -->
+                        <div class="ai-citations-box hidden" id="ai-citations-container">
+                            <strong>Sources Cited:</strong> <span id="ai-citations-links"></span>
+                        </div>
+
+                        <div class="ai-prompt-shortcuts">
+                            <button class="ai-shortcut-btn" onclick="submitAIShortcut('Audit current forecast and recommend 3 structural cash mitigations.')">⚡ Quick CFO Stress Audit</button>
+                            <button class="ai-shortcut-btn" onclick="submitAIShortcut('Compare our current PAL and PRO allocations to the SSOT historical baselines and flag any channel imbalances.')">📊 Volume vs SSOT Review</button>
+                            <button class="ai-shortcut-btn" onclick="submitAIShortcut('Based on our active cash trough, draft a formal Executive Procurement Memorandum template for management.')">📋 Draft Procurement Memo</button>
+                            <button class="ai-shortcut-btn" onclick="submitAIShortcut('Research current 2026 electronics shipping freight rates and Optical Components trends to check if our Landed Buffer is safe.', true)">🌐 Research 2026 Sourcing Rates (Requires Search)</button>
+                        </div>
+
+                        <div class="ai-toggle-row">
+                            <div style="display: flex; flex-direction: column; gap: 2px;">
+                                <span style="font-weight: 700; font-size: 11px; color: var(--navy-900);">Enable Web Grounding (Google Search)</span>
+                                <span style="font-size: 10px; color: var(--navy-600);">Let Gemini research live competitive rates or competitive Amazon listing prices.</span>
+                            </div>
+                            <label class="grounding-switch">
+                                <input type="checkbox" id="ai-toggle-grounding">
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+
+                        <div class="ai-input-row">
+                            <textarea class="ai-textarea" id="input-ai-prompt" placeholder="Ask custom questions... (e.g. How does increasing deposit to 40% affect my summer deficit?)"></textarea>
+                            <button onclick="submitAICustomPrompt()" class="btn-action" id="btn-ai-submit" style="margin: 0; padding: 0 16px; display: flex; align-items: center; justify-content: center; height: 48px;">
+                                Send 🚀
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="interactive-tooltip"></div>
+    <div id="toast-manager-container"></div>
+
+    <script>
+        const MONTHS = ['Jul-26','Aug-26','Sep-26','Oct-26','Nov-26','Dec-26','Jan-27','Feb-27','Mar-27','Apr-27','May-27','Jun-27'];
+        const HISTORICAL_MAY_JUN_NET_REV = [192747, 147347]; // May-26, Jun-26 actuals (SSOT prePeriod_netRevenueUSD)
+        const PROMO_DEPTH_INDEX = [0.97, 1.0, 1.0, 1.0, 0.90, 0.95, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]; // realized depth indexes (RIDX)
+        const SEASONAL_COEFFS = [0.55, 0.98, 1.50, 1.46, 1.62, 1.30, 0.72, 0.97, 0.65, 1.06, 0.66, 0.64];
+
+        // SSOT baseline units used to compute constant-price volumes (YoY basis)
+        const LY_UNITS_SKU = {
+            PAL: [333, 541, 866, 828, 1096, 943, 615, 562, 830, 518, 490, 285],
+            PRO: [362, 588, 952, 885, 632, 633, 688, 660, 497, 505, 606, 487],
+            MAX: [0, 0, 0, 0, 32, 23, 124, 91, 122, 142, 217, 140]
+        };
+
+        const SKU_SEASONAL_PROFILE = {
+            PAL: [0.505, 0.821, 1.314, 1.257, 1.663, 1.431, 0.933, 0.853, 1.260, 0.786, 0.744, 0.433],
+            PRO: [0.580, 0.941, 1.524, 1.417, 1.012, 1.013, 1.102, 1.057, 0.796, 0.809, 0.970, 0.780],
+            MAX: [0.550, 0.980, 1.500, 1.460, 1.620, 1.300, 0.720, 0.970, 0.650, 1.060, 0.660, 0.640]
+        };
+
+        // SSOT SKU baseline configuration values
+        const DEFAULT_SKU_PARAMS = [
+            { name: 'PAL', openStock: 1951, baseDemand: 700, listPrice: 149, realizedPct: 90.0, unitCost: 32.20, channelCostPct: 49.8, firstArrivalMo: 2, orderUnits: 6800 },
+            { name: 'PRO', openStock: 998, baseDemand: 645, listPrice: 249, realizedPct: 85.0, unitCost: 39.70, channelCostPct: 32.7, firstArrivalMo: 2, orderUnits: 6800 },
+            { name: 'MAX', openStock: 940, baseDemand: 300, listPrice: 315, realizedPct: 93.0, unitCost: 40.20, channelCostPct: 23.9, firstArrivalMo: 2, orderUnits: 3400 }
+        ];
+
+        // GLOBAL APPLICATION STATE
+        let AppState = {
+            currentTab: 'dashboard',
+            engineMode: 'slim', // 'slim' or 'extensive'
+            openCash: 0,
+            stableBurn: 140000,
+            extraOpEx: 0,
+            dspMonthly: 5000, // SSOT Tier C default advertising
+            depPct: 30,
+            other: 2.6, 
+            col0: 70,
+            col1: 24,
+            demandGrowth: 0,
+            landedBuffer: 0, 
+            skus: JSON.parse(JSON.stringify(DEFAULT_SKU_PARAMS)),
+            allocations: [40, 40, 20], // PAL, PRO, MAX
+            masterUnits: 17000,
+            masterBudget: 625600,
+            extensiveGrid: {
+                PAL: { demand: [], receipts: [] },
+                PRO: { demand: [], receipts: [] },
+                MAX: { demand: [], receipts: [] }
+            }
+        };
+
+        // EXPANSED STATE FOR ADV ADVISORIES
+        let ExpandedAdvisories = {
+            trough: false,
+            proStock: false,
+            cogsLedger: false,
+            coverage: false,
+            maxUncertainty: false
+        };
+
+        let SelectedScenarioIndex = -1;
+
+        let StoryState = {
+            stops: [],
+            idx: 5,
+            revealed: 5,
+            auto: false,
+            seq: 0,
+            curP: 11,
+            tm: null,
+            played: false
+        };
+
+        // INITIALIZATION
+        window.onload = function() {
+            resetExtensiveManualGrid();
+            rebuildAllocInputs();
+            applyMasterDriversFromUnits();
+            runCalculations();
+            setupInteractiveTooltips();
+            setupKeyboardNavigation();
+            loadScenarioList();
+        };
+
+        function getLandedCost(sku, state) {
+            return sku.unitCost + state.landedBuffer;
+        }
+
+        function runConsolidatedSolver(tempState) {
+            const state = tempState || AppState;
+
+            const depositRate = state.depPct / 100;
+            const collection0 = state.col0 / 100;
+            const collection1 = state.col1 / 100;
+            const collection2 = Math.max(0, 1 - collection0 - collection1); 
+            const burnFactor = state.stableBurn + state.extraOpEx;
+            const globalGrowth = 1 + (state.demandGrowth / 100);
+
+            let monthlyUnitsDemanded = Array(12).fill(0);
+            let monthlyUnitsSold = Array(12).fill(0);
+            let monthlyLostSalesUnits = Array(12).fill(0);
+            let monthlyLostSalesValue = Array(12).fill(0);
+            let monthlyGrossRevenue = Array(12).fill(0);
+            let monthlyCOGS = Array(12).fill(0);
+            let monthlyChannelCosts = Array(12).fill(0);
+            let monthlyNetRevenue = Array(12).fill(0);
+            let monthlyPayments = Array(12).fill(0);
+
+            let skuSpecificFlows = {};
+
+            state.skus.forEach((sku) => {
+                skuSpecificFlows[sku.name] = {
+                    demand: Array(12).fill(0),
+                    receipts: Array(12).fill(0),
+                    sold: Array(12).fill(0),
+                    lostUnits: Array(12).fill(0),
+                    lostRevenue: Array(12).fill(0),
+                    endingInventory: Array(12).fill(0),
+                    daysOfCover: Array(12).fill(0),
+                    revenue: Array(12).fill(0),
+                    cogs: Array(12).fill(0),
+                    channelCosts: Array(12).fill(0),
+                    netRevenue: Array(12).fill(0)
+                };
+
+                const effectiveASP = sku.listPrice * (sku.realizedPct / 100);
+                const currentLandedCost = getLandedCost(sku, state);
+
+                let demands = Array(12).fill(0);
+                let receipts = Array(12).fill(0);
+
+                if (state.engineMode === 'slim') {
+                    for (let m = 0; m < 12; m++) {
+                        demands[m] = Math.round(sku.baseDemand * (SKU_SEASONAL_PROFILE[sku.name][m]) * globalGrowth);
+
+                        const spreadFactor = [0.5, 1/6, 1/6, 1/6];
+                        spreadFactor.forEach((p, k) => {
+                            const targetMonth = sku.firstArrivalMo + k;
+                            if (targetMonth === m) {
+                                if (k < 3) {
+                                    receipts[m] += Math.round(sku.orderUnits * p);
+                                } else {
+                                    receipts[m] += (sku.orderUnits - Math.round(sku.orderUnits * 0.5) - 2 * Math.round(sku.orderUnits / 6));
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    demands = [...state.extensiveGrid[sku.name].demand];
+                    receipts = [...state.extensiveGrid[sku.name].receipts];
+                }
+
+                let currentStock = sku.openStock;
+                for (let m = 0; m < 12; m++) {
+                    const demand = demands[m];
+                    const rec = receipts[m];
+                    const sellablePool = currentStock + rec;
+
+                    const sold = Math.min(demand, sellablePool);
+                    const lostU = Math.max(0, demand - sellablePool);
+                    currentStock = sellablePool - sold;
+
+                    const doc = demand > 0 ? Math.round(currentStock / (demand / 30)) : 999;
+
+                    skuSpecificFlows[sku.name].demand[m] = demand;
+                    skuSpecificFlows[sku.name].receipts[m] = rec;
+                    skuSpecificFlows[sku.name].sold[m] = sold;
+                    skuSpecificFlows[sku.name].lostUnits[m] = lostU;
+                    skuSpecificFlows[sku.name].endingInventory[m] = currentStock;
+                    skuSpecificFlows[sku.name].daysOfCover[m] = doc;
+
+                    const actualASP = effectiveASP * PROMO_DEPTH_INDEX[m];
+                    const revenue = sold * actualASP;
+                    const cogs = sold * currentLandedCost;
+                    const channelCosts = (revenue * (sku.channelCostPct / 100)) + (revenue * (state.other / 100));
+                    const netRevenue = revenue - channelCosts;
+                    const lostRevenue = lostU * actualASP;
+
+                    skuSpecificFlows[sku.name].revenue[m] = revenue;
+                    skuSpecificFlows[sku.name].cogs[m] = cogs;
+                    skuSpecificFlows[sku.name].channelCosts[m] = channelCosts;
+                    skuSpecificFlows[sku.name].netRevenue[m] = netRevenue;
+                    skuSpecificFlows[sku.name].lostRevenue[m] = lostRevenue;
+
+                    monthlyUnitsDemanded[m] += demand;
+                    monthlyUnitsSold[m] += sold;
+                    monthlyLostSalesUnits[m] += lostU;
+                    monthlyLostSalesValue[m] += lostRevenue;
+                    monthlyGrossRevenue[m] += revenue;
+                    monthlyCOGS[m] += cogs;
+                    monthlyChannelCosts[m] += channelCosts;
+                    monthlyNetRevenue[m] += netRevenue;
+
+                    const batchCost = rec * currentLandedCost;
+                    if (batchCost > 0) {
+                        monthlyPayments[Math.max(0, m - 2)] += batchCost * depositRate;
+                        monthlyPayments[Math.max(0, m - 1)] += batchCost * (1 - depositRate);
+                    }
+                }
+            });
+
+            for (let m = 0; m < 12; m++) {
+                monthlyChannelCosts[m] += state.dspMonthly;
+                monthlyNetRevenue[m] -= state.dspMonthly;
+            }
+
+            let monthlyCollections = Array(12).fill(0);
+            let monthlyNetCashFlow = Array(12).fill(0);
+            let monthlyCumulativeCash = Array(12).fill(0);
+
+            for (let m = 0; m < 12; m++) {
+                const prevMo1Net = m > 0 ? monthlyNetRevenue[m - 1] : HISTORICAL_MAY_JUN_NET_REV[1];
+                const prevMo2Net = m > 1 ? monthlyNetRevenue[m - 2] : (m === 1 ? HISTORICAL_MAY_JUN_NET_REV[1] : HISTORICAL_MAY_JUN_NET_REV[0]);
+
+                monthlyCollections[m] = (monthlyNetRevenue[m] * collection0) + (prevMo1Net * collection1) + (prevMo2Net * collection2);
+                monthlyNetCashFlow[m] = monthlyCollections[m] - monthlyPayments[m] - burnFactor;
+                monthlyCumulativeCash[m] = (m > 0 ? monthlyCumulativeCash[m - 1] : state.openCash) + monthlyNetCashFlow[m];
+            }
+
+            return {
+                skuFlows: skuSpecificFlows,
+                demanded: monthlyUnitsDemanded,
+                sold: monthlyUnitsSold,
+                lostUnits: monthlyLostSalesUnits,
+                lostRevenue: monthlyLostSalesValue,
+                revenue: monthlyGrossRevenue,
+                cogs: monthlyCOGS,
+                channelCosts: monthlyChannelCosts,
+                netRevenue: monthlyNetRevenue,
+                supplierPayments: monthlyPayments,
+                collections: monthlyCollections,
+                netCash: monthlyNetCashFlow,
+                cumulativeCash: monthlyCumulativeCash
+            };
+        }
+
+        function runCalculations() {
+            const out = runConsolidatedSolver(AppState);
+
+            renderKPICards(out);
+            renderSankeyChart(out);
+            renderCashRunwayBars(out);
+
+            renderDashboardSummary(out);
+            renderMonthlyPlanningGrid(out);
+            renderSKUEconomicsTable();
+            renderSensitivitySandbox();
+            renderAuditsAdvisories(out);
+            syncHorseraceData(out);
+            syncAICopilotContext(out);
+        }
+
+        function renderKPICards(out) {
+            const revTotal = sum(out.revenue);
+            const gpTotal = revTotal - sum(out.channelCosts) - sum(out.cogs);
+            const netCashGen = out.cumulativeCash[11] - AppState.openCash;
+            const troughValue = Math.min(...out.cumulativeCash);
+            const lostSalesVal = sum(out.lostRevenue);
+            const filledPct = sum(out.demanded) > 0 ? Math.round((sum(out.sold) / sum(out.demanded)) * 100) : 100;
+
+            let supplierCommitmentVal = 0;
+            AppState.skus.forEach(s => {
+                supplierCommitmentVal += s.orderUnits * getLandedCost(s, AppState);
+            });
+
+            const cards = [
+                { k: 'FY Revenue', v: formatUSD(revTotal), n: `${formatNum(sum(out.sold))} of ${formatNum(sum(out.demanded))} u sold`, ok: true },
+                { k: 'FY Gross Profit', v: formatUSD(gpTotal), n: `${revTotal > 0 ? Math.round((gpTotal/revTotal)*100) : 0}% margin`, ok: true },
+                { k: 'FY Net Cash', v: formatUSD(netCashGen), n: `End balance: ${formatUSD(out.cumulativeCash[11])}`, ok: netCashGen >= 0, bad: netCashGen < 0 },
+                { k: 'Cash Trough', v: formatUSD(troughValue), n: troughValue < 0 ? `Deficit detected` : `Self-funded`, ok: troughValue >= 0, bad: troughValue < 0 },
+                { k: 'Lost Sales Value', v: formatUSD(lostSalesVal), n: `${filledPct}% demand filled`, bad: lostSalesVal > 0, ok: lostSalesVal === 0 },
+                { k: 'Supplier Commitment', v: formatUSD(supplierCommitmentVal), n: `${formatNum(AppState.masterUnits)} units on order`, ok: true }
+            ];
+
+            const kpisContainer = document.getElementById('kpis-container');
+            if (kpisContainer) {
+                kpisContainer.innerHTML = cards.map(c => `
+                    <div class="kpi-card ${c.bad ? 'bad' : (c.ok ? 'ok' : '')}">
+                        <span class="k">${c.k}</span>
+                        <span class="v">${c.v}</span>
+                        <span class="n">${c.n}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function rebuildAllocInputs() {
+            let html = '';
+            AppState.skus.forEach((sku, idx) => {
+                html += `
+                    <div class="alloc-row">
+                        <label>
+                            <span class="dot" style="background-color: ${['#2E75B6', '#1F3864', '#70AD47'][idx]}"></span>
+                            ${sku.name} Mix
+                        </label>
+                        <input type="range" min="0" max="100" step="0.5" value="${AppState.allocations[idx]}" oninput="handleAllocSlider(${idx}, this.value)">
+                        <input type="number" min="0" max="100" value="${AppState.allocations[idx]}" oninput="handleAllocSlider(${idx}, this.value)">
+                    </div>
+                `;
+            });
+            const allocContainer = document.getElementById('alloc-inputs-rows');
+            if (allocContainer) {
+                allocContainer.innerHTML = html;
+            }
+            syncAllocBarUI();
+        }
+
+        function handleAllocSlider(idx, val) {
+            let num = Math.min(100, Math.max(0, parseFloat(val) || 0));
+            const remainingIndices = [0, 1, 2].filter(i => i !== idx);
+            const remainingSum = remainingIndices.reduce((acc, cur) => acc + AppState.allocations[cur], 0);
+            const difference = 100 - num;
+
+            if (remainingSum > 0) {
+                remainingIndices.forEach(i => {
+                    AppState.allocations[i] = (AppState.allocations[i] / remainingSum) * difference;
+                });
+            } else {
+                remainingIndices.forEach(i => {
+                    AppState.allocations[i] = difference / 2;
+                });
+            }
+
+            AppState.allocations[idx] = num;
+
+            AppState.allocations = AppState.allocations.map(p => Math.round(p * 10) / 10);
+            const totalSum = AppState.allocations.reduce((acc, cur) => acc + cur, 0);
+            const residue = Math.round((100 - totalSum) * 10) / 10;
+            AppState.allocations[remainingIndices[0]] = Math.round((AppState.allocations[remainingIndices[0]] + residue) * 10) / 10;
+
+            AppState.skus.forEach((s, idx) => {
+                s.orderUnits = Math.round((AppState.masterUnits * AppState.allocations[idx] / 100) / 50) * 50;
+            });
+
+            rebuildAllocInputs();
+            applyMasterDriversFromUnits();
+            runCalculations();
+        }
+
+        function syncAllocBarUI() {
+            const bar = document.getElementById('alloc-bar-track');
+            if (!bar) return;
+            bar.innerHTML = AppState.skus.map((s, idx) => {
+                const width = AppState.allocations[idx];
+                return width > 0 ? `
+                    <div class="alloc-bar-segment ${['pal', 'pro', 'max'][idx]}" style="width: ${width}%">
+                        ${width >= 8 ? s.name + ' ' + width + '%' : ''}
+                    </div>
+                ` : '';
+            }).join('');
+        }
+
+        function handleMasterDriver(source, val) {
+            const value = parseFloat(val) || 0;
+            const blendedCost = getBlendedUnitCost();
+
+            if (source === 'units') {
+                AppState.masterUnits = value;
+                AppState.masterBudget = Math.round(value * blendedCost);
+            } else {
+                AppState.masterBudget = value;
+                AppState.masterUnits = blendedCost > 0 ? Math.round(value / blendedCost) : 0;
+            }
+
+            AppState.skus.forEach((sku, idx) => {
+                sku.orderUnits = Math.round((AppState.masterUnits * AppState.allocations[idx] / 100) / 50) * 50;
+            });
+
+            applyMasterDriversFromUnits();
+            runCalculations();
+        }
+
+        function getBlendedUnitCost() {
+            return AppState.skus.reduce((acc, sku, idx) => {
+                return acc + (AppState.allocations[idx] / 100) * getLandedCost(sku, AppState);
+            }, 0);
+        }
+
+        function applyMasterDriversFromUnits() {
+            const totalUnits = AppState.skus.reduce((acc, s) => acc + s.orderUnits, 0);
+            AppState.masterUnits = totalUnits;
+
+            const totalCost = AppState.skus.reduce((acc, s) => {
+                return acc + s.orderUnits * getLandedCost(s, AppState);
+            }, 0);
+            AppState.masterBudget = Math.round(totalCost);
+
+            const mUnitsInput = document.getElementById('master-units-input');
+            const mBudgetInput = document.getElementById('master-budget-input');
+            if (mUnitsInput) mUnitsInput.value = totalUnits;
+            if (mBudgetInput) mBudgetInput.value = AppState.masterBudget;
+        }
+
+        function setEngineMode(mode) {
+            AppState.engineMode = mode;
+            const btnSlim = document.getElementById('mode-btn-slim');
+            const btnExt = document.getElementById('mode-btn-extensive');
+            const title = document.getElementById('banner-mode-title');
+            const desc = document.getElementById('banner-mode-desc');
+
+            if (mode === 'slim') {
+                if (btnSlim) btnSlim.classList.add('active');
+                if (btnExt) btnExt.classList.remove('active');
+                if (title) title.textContent = "Forecasting Active: Seasonality Formula (Slim)";
+                if (desc) desc.innerHTML = "Monthly demand scales automatically using deseasonalized baseline values multiplied by historical index ratios. To write manual adjustments, switch to Extensive mode above.";
+            } else {
+                if (btnSlim) btnSlim.classList.remove('active');
+                if (btnExt) btnExt.classList.add('active');
+                if (title) title.textContent = "Manual Overrides Active: Cell-by-Cell Grid (Extensive)";
+                if (desc) desc.innerHTML = "All monthly cells are open and fully editable. Formulas are bypassed for overridden values. Presets will prompt grid updates.";
+                resetExtensiveManualGrid();
+            }
+            runCalculations();
+        }
+
+        function resetExtensiveManualGrid() {
+            AppState.skus.forEach(s => {
+                AppState.extensiveGrid[s.name].demand = [];
+                AppState.extensiveGrid[s.name].receipts = [];
+
+                for (let m = 0; m < 12; m++) {
+                    const d = Math.round(s.baseDemand * (SKU_SEASONAL_PROFILE[s.name][m]) * (1 + AppState.demandGrowth / 100));
+                    AppState.extensiveGrid[s.name].demand.push(d);
+
+                    let rec = 0;
+                    const spreadFactor = [0.5, 1/6, 1/6, 1/6];
+                    spreadFactor.forEach((p, k) => {
+                        const targetMonth = s.firstArrivalMo + k;
+                        if (targetMonth === m) {
+                            if (k < 3) {
+                                rec += Math.round(s.orderUnits * p);
+                            } else {
+                                rec += (s.orderUnits - Math.round(s.orderUnits * 0.5) - 2 * Math.round(s.orderUnits / 6));
+                            }
+                        }
+                    });
+                    AppState.extensiveGrid[s.name].receipts.push(rec);
+                }
+            });
+        }
+
+        function loadScenario(preset) {
+            document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('active'));
+
+            if (preset === 'base') {
+                const el = document.getElementById('preset-card-base');
+                if (el) el.classList.add('active');
+                AppState.masterUnits = 17000;
+                AppState.allocations = [40, 40, 20];
+                AppState.skus = JSON.parse(JSON.stringify(DEFAULT_SKU_PARAMS));
+                AppState.demandGrowth = 0;
+                showToast("Base Plan loaded successfully! Optimum portfolio initialized.", "success");
+            } else if (preset === 'conserve') {
+                const el = document.getElementById('preset-card-conserve');
+                if (el) el.classList.add('active');
+                AppState.masterUnits = 13000;
+                AppState.allocations = [40, 40, 20];
+                AppState.skus = JSON.parse(JSON.stringify(DEFAULT_SKU_PARAMS));
+                AppState.skus.forEach((s, i) => {
+                    s.orderUnits = Math.round((13000 * AppState.allocations[i] / 100) / 50) * 50;
+                });
+                AppState.demandGrowth = 0;
+                showToast("Conservation metrics loaded. Peak capital outflows optimized.", "success");
+            } else if (preset === 'optimized') {
+                const el = document.getElementById('preset-card-optimized');
+                if (el) el.classList.add('active');
+                AppState.masterUnits = 13000;
+                AppState.allocations = [50, 25, 25]; 
+                AppState.skus = JSON.parse(JSON.stringify(DEFAULT_SKU_PARAMS));
+                AppState.skus.forEach((s, i) => {
+                    s.orderUnits = Math.round((13000 * AppState.allocations[i] / 100) / 50) * 50;
+                });
+                AppState.demandGrowth = 0;
+                showToast("Legacy Amazon-only mix loaded. WARNING: Under-allocates PRO.", "error");
+            } else if (preset === 'zero') {
+                const el = document.getElementById('preset-card-zero');
+                if (el) el.classList.add('active');
+                AppState.masterUnits = 0;
+                AppState.allocations = [40, 40, 20];
+                AppState.skus.forEach(s => s.orderUnits = 0);
+                showToast("All batches cancelled. Tracking pure cash burn.", "success");
+            }
+
+            resetExtensiveManualGrid();
+            rebuildAllocInputs();
+            applyMasterDriversFromUnits();
+            runCalculations();
+        }
+
+        function renderSankeyChart(out) {
+            const totalRev = sum(out.revenue);
+            const totalCOGS = sum(out.cogs);
+            const totalChannel = sum(out.channelCosts);
+            const totalGP = Math.max(0, totalRev - totalChannel - totalCOGS);
+            const totalBurn = (AppState.stableBurn + AppState.extraOpEx) * 12;
+            const operatingProfit = Math.max(0, totalGP - totalBurn);
+
+            const PAL_rev = sum(out.skuFlows.PAL.revenue);
+            const PRO_rev = sum(out.skuFlows.PRO.revenue);
+            const MAX_rev = sum(out.skuFlows.MAX.revenue);
+
+            const cols = [
+                [
+                    { name: 'PAL Rev', val: PAL_rev, color: '#2E75B6' },
+                    { name: 'PRO Rev', val: PRO_rev, color: '#1F3864' },
+                    { name: 'MAX Rev', val: MAX_rev, color: '#70AD47' }
+                ],
+                [
+                    { name: 'Total Revenue', val: totalRev, color: 'var(--navy-800)' }
+                ],
+                [
+                    { name: 'Channel Costs', val: totalChannel, color: 'var(--navy-600)' },
+                    { name: 'COGS Sourcing', val: totalCOGS, color: '#475569' },
+                    { name: 'Landed GP', val: totalGP, color: 'var(--green-600)' }
+                ],
+                [
+                    { name: 'Fixed Burn', val: totalBurn, color: 'var(--red-600)' },
+                    { name: 'Operating Net', val: operatingProfit, color: 'var(--green-700)' }
+                ]
+            ];
+
+            const links = [
+                { from: [0, 0], to: [1, 0], val: PAL_rev, color: '#93c5fd' },
+                { from: [0, 1], to: [1, 0], val: PRO_rev, color: '#64748b' },
+                { from: [0, 2], to: [1, 0], val: MAX_rev, color: '#86efac' },
+                { from: [1, 0], to: [2, 0], val: totalChannel, color: '#cbd5e1' },
+                { from: [1, 0], to: [2, 1], val: totalCOGS, color: '#cbd5e1' },
+                { from: [1, 0], to: [2, 2], val: totalGP, color: '#86efac' },
+                { from: [2, 2], to: [3, 0], val: Math.min(totalGP, totalBurn), color: '#fca5a5' },
+                { from: [2, 2], to: [3, 1], val: operatingProfit, color: '#86efac' }
+            ];
+
+            const W = 620, H = 220, NW = 12, GAP = 12, P = { l: 5, r: 5, t: 8, b: 8 };
+            const usableH = H - P.t - P.b;
+
+            const scale = Math.min(...cols.map(c => {
+                const s = c.reduce((acc, curr) => acc + curr.val, 0);
+                return (usableH - GAP * (c.length - 1)) / Math.max(1, s);
+            }));
+
+            cols.forEach((col, cIdx) => {
+                let currentY = P.t + (usableH - (col.reduce((acc, curr) => acc + curr.val, 0) * scale + GAP * (col.length - 1))) / 2;
+                col.forEach(node => {
+                    node.x = P.l + cIdx * ((W - P.l - P.r - NW) / (cols.length - 1));
+                    node.y = currentY;
+                    node.h = Math.max(4, node.val * scale);
+                    currentY += node.h + GAP;
+                    node.outFlow = 0;
+                    node.inFlow = 0;
+                });
+            });
+
+            let svgStr = `<svg viewBox="0 0 ${W} ${H}" data-sankey="1" xmlns="http://www.w3.org/2000/svg" style="background:#fff;">`;
+            
+            links.forEach(link => {
+                const src = cols[link.from[0]][link.from[1]];
+                const dest = cols[link.to[0]][link.to[1]];
+                const h = Math.max(2, link.val * scale);
+
+                const x0 = src.x + NW;
+                const y0 = src.y + src.outFlow + h / 2;
+                const x1 = dest.x;
+                const y1 = dest.y + dest.inFlow + h / 2;
+
+                src.outFlow += h;
+                dest.inFlow += h;
+
+                const mx = (x0 + x1) / 2;
+                svgStr += `
+                    <path class="lk" d="M${x0},${y0} C${mx},${y0} ${mx},${y1} ${x1},${y1}" 
+                          stroke="${link.color}" stroke-width="${h}" fill="none" pathLength="1"
+                          data-t="${src.name} &rarr; ${dest.name}: ${formatUSD(link.val)}" />
+                `;
+            });
+
+            cols.forEach((col, cIdx) => col.forEach((node, nIdx) => {
+                svgStr += `
+                    <rect class="nd" x="${node.x}" y="${node.y}" width="${NW}" height="${node.h}" rx="2" fill="${node.color}"
+                          data-t="${node.name}: ${formatUSD(node.val)}" />
+                `;
+
+                const isRightCol = cIdx < cols.length - 1;
+                const textX = isRightCol ? node.x + NW + 5 : node.x - 5;
+                const textAnchor = isRightCol ? 'start' : 'end';
+
+                svgStr += `
+                    <text x="${textX}" y="${node.y + Math.max(6, node.h / 2) - 1}" font-size="7" font-weight="700" fill="#1e293b" text-anchor="${textAnchor}">${node.name}</text>
+                    <text x="${textX}" y="${node.y + Math.max(6, node.h / 2) + 7}" font-size="6.5" font-weight="500" fill="#64748b" text-anchor="${textAnchor}">${formatUSD(node.val)}</text>
+                `;
+            }));
+
+            svgStr += `</svg>`;
+            const sankeyWrapper = document.getElementById('sankey-chart-wrapper');
+            if (sankeyWrapper) {
+                sankeyWrapper.innerHTML = svgStr;
+            }
+            setupInteractiveTooltips();
+        }
+
+        function renderCashRunwayBars(out) {
+            const maxVal = Math.max(...out.cumulativeCash.map(Math.abs), 50000);
+            let html = '';
+
+            MONTHS.forEach((m, idx) => {
+                const bal = out.cumulativeCash[idx];
+                const heightPct = Math.max(4, (Math.abs(bal) / maxVal) * 100);
+                const pos = bal >= 0;
+
+                html += `
+                    <div class="bar-col">
+                        <div class="bar-pill ${pos ? 'positive' : 'negative'}" style="height: ${heightPct}%;" data-t="${m} Cash Balance: ${formatUSD(bal)}"></div>
+                        <div class="bar-label">
+                            <strong>${m.slice(0, 3)}</strong><br>
+                            ${Math.round(bal/1000)}k
+                        </div>
+                    </div>
+                `;
+            });
+            const runwayContainer = document.getElementById('cash-runway-bars');
+            if (runwayContainer) {
+                runwayContainer.innerHTML = html;
+            }
+        }
+
+        function renderDashboardSummary(out) {
+            let html = `
+                <thead>
+                    <tr>
+                        <th style="text-align:left;">SKU Product</th>
+                        <th>Target Sizing Allocation</th>
+                        <th>Planned Volume Size</th>
+                        <th>Factory Landed Cost</th>
+                        <th>List Price MSRP</th>
+                        <th>Realized ASP Collection</th>
+                        <th>Estimated Landed GP</th>
+                        <th>Operational Stockout Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+
+            AppState.skus.forEach((sku, idx) => {
+                const skuFlow = out.skuFlows[sku.name];
+                const listGP = sku.listPrice * (sku.realizedPct/100) * (1 - (sku.channelCostPct/100)) - getLandedCost(sku, AppState);
+
+                let firstStockoutMonth = '✓ No Outage';
+                let alertClass = 'zero-cell';
+                for (let m = 0; m < 12; m++) {
+                    if (skuFlow.sold[m] < skuFlow.demand[m]) {
+                        firstStockoutMonth = `⚠️ Outage in ${MONTHS[m]}`;
+                        alertClass = 'stockout-cell';
+                        break;
+                    }
+                }
+
+                html += `
+                    <tr>
+                        <td style="text-align:left;"><strong>${sku.name}</strong></td>
+                        <td>${AppState.allocations[idx]}%</td>
+                        <td>${formatNum(sku.orderUnits)} units</td>
+                        <td>${formatUSD(getLandedCost(sku, AppState))}</td>
+                        <td>${formatUSD(sku.listPrice)}</td>
+                        <td>${formatUSD(sku.listPrice * (sku.realizedPct/100))}</td>
+                        <td><strong>${formatUSD(listGP)}</strong> (${Math.round((listGP / (sku.listPrice*(sku.realizedPct/100)))*100)}%)</td>
+                        <td class="${alertClass}">${firstStockoutMonth}</td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody>';
+            const tableElement = document.getElementById('dashboard-summary-table');
+            if (tableElement) {
+                tableElement.innerHTML = html;
+            }
+        }
+
+        function getHeatmapClass(val, maxAbs) {
+            if (val === 0) return 'hm-neutral';
+            const ratio = val / maxAbs;
+            if (ratio < -0.6) return 'hm-neg-deep';
+            if (ratio < -0.2) return 'hm-neg-soft';
+            if (ratio < 0) return 'hm-neg-trace';
+            if (ratio > 0.6) return 'hm-pos-deep';
+            if (ratio > 0.2) return 'hm-pos-soft';
+            return 'hm-pos-trace';
+        }
+
+        function renderMonthlyPlanningGrid(out) {
+            const isExt = AppState.engineMode === 'extensive';
+            let html = `
+                <thead>
+                    <tr>
+                        <th style="text-align:left; min-width: 170px;">Metric Flow Grid Row</th>
+                        ${MONTHS.map(m => `<th>${m}</th>`).join('')}
+                        <th>Full Year</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+
+            AppState.skus.forEach((sku) => {
+                const flows = out.skuFlows[sku.name];
+
+                html += `
+                    <tr class="header-row">
+                        <td colspan="14">📦 SKU: ${sku.name} Operational Metrics</td>
+                    </tr>
+                `;
+
+                html += `
+                    <tr>
+                        <td>Demand Volume ${isExt ? '<span style="font-size:8px; color:var(--blue-600); font-weight:800;">(EDIT)</span>' : ''}</td>
+                        ${MONTHS.map((m, mIdx) => {
+                            if (isExt) {
+                                return `<td class="editable-cell"><input type="number" value="${flows.demand[mIdx]}" onchange="handleCellOverride('${sku.name}', 'demand', ${mIdx}, this.value)"></td>`;
+                            }
+                            const lyUnits = LY_UNITS_SKU[sku.name] ? LY_UNITS_SKU[sku.name][mIdx] : 0;
+                            const yoyText = lyUnits > 0 ? getYoYBadge(flows.demand[mIdx], lyUnits) : '';
+                            return `<td>${formatNum(flows.demand[mIdx])}${yoyText}</td>`;
+                        }).join('')}
+                        <td><strong>${formatNum(sum(flows.demand))}</strong></td>
+                    </tr>
+                `;
+
+                html += `
+                    <tr>
+                        <td>Receipt Deliveries ${isExt ? '<span style="font-size:8px; color:var(--blue-600); font-weight:800;">(EDIT)</span>' : ''}</td>
+                        ${MONTHS.map((m, mIdx) => {
+                            if (isExt) {
+                                return `<td class="editable-cell"><input type="number" value="${flows.receipts[mIdx]}" onchange="handleCellOverride('${sku.name}', 'receipts', ${mIdx}, this.value)"></td>`;
+                            }
+                            return `<td>${formatNum(flows.receipts[mIdx])}</td>`;
+                        }).join('')}
+                        <td><strong>${formatNum(sum(flows.receipts))}</strong></td>
+                    </tr>
+                `;
+
+                html += `
+                    <tr>
+                        <td>Units Sold (capped)</td>
+                        ${MONTHS.map((m, mIdx) => {
+                            const isCapped = flows.sold[mIdx] < flows.demand[mIdx];
+                            return `<td class="${isCapped ? 'stockout-cell' : ''}">${formatNum(flows.sold[mIdx])}</td>`;
+                        }).join('')}
+                        <td><strong>${formatNum(sum(flows.sold))}</strong></td>
+                    </tr>
+                `;
+
+                html += `
+                    <tr>
+                        <td>Lost Sales (units)</td>
+                        ${MONTHS.map((m, mIdx) => {
+                            const val = flows.lostUnits[mIdx];
+                            return `<td class="${val > 0 ? 'stockout-cell' : ''}">${val > 0 ? formatNum(val) : '—'}</td>`;
+                        }).join('')}
+                        <td class="${sum(flows.lostUnits) > 0 ? 'stockout-cell' : ''}"><strong>${formatNum(sum(flows.lostUnits))}</strong></td>
+                    </tr>
+                `;
+
+                html += `
+                    <tr>
+                        <td>Days of Cover (DOI)</td>
+                        ${MONTHS.map((m, mIdx) => {
+                            const doi = flows.daysOfCover[mIdx];
+                            const stockout = flows.endingInventory[mIdx] <= 0;
+                            const isLow = doi < 28;
+                            let cls = '';
+                            if (stockout) cls = 'stockout-cell';
+                            else if (isLow) cls = 'alert-cell';
+                            return `<td class="${cls}">${doi >= 999 ? '—' : doi}</td>`;
+                        }).join('')}
+                        <td>Avg: ${Math.round(sum(flows.daysOfCover) / 12)}d</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                <tr class="header-row">
+                    <td colspan="14">💵 Consolidated Monthly Cash Results ($000s) [Dynamic Soft Heatmap Color Range]</td>
+                </tr>
+            `;
+
+            const cashRows = [
+                { name: 'Revenue', val: out.revenue },
+                { name: 'Channel Costs', val: out.channelCosts.map(c => -c) },
+                { name: 'Sourcing COGS (Sold)', val: out.cogs.map(c => -c) },
+                { name: 'Monthly Landed GP', val: out.revenue.map((r, mIdx) => r - out.channelCosts[mIdx] - out.cogs[mIdx]), highlight: true },
+                { name: 'Customer Lag Collections', val: out.collections },
+                { name: 'Supplier Factory Payments', val: out.supplierPayments.map(p => -p) },
+                { name: 'Stable Burn + extra OpEx', val: MONTHS.map(() => -(AppState.stableBurn + AppState.extraOpEx)) },
+                { name: 'Net Operating Cash Flow', val: out.netCash, highlight: true, hm: true },
+                { name: 'Cumulative Cash Balance', val: out.cumulativeCash, finalHighlight: true, hm: true }
+            ];
+
+            cashRows.forEach(row => {
+                let cls = '';
+                if (row.highlight) cls = 'total-row';
+                if (row.finalHighlight) cls = 'total-row';
+
+                // Locate extreme values for soft heatmapping (Req 2)
+                const maxAbs = Math.max(...row.val.map(Math.abs), 1);
+
+                html += `
+                    <tr class="${cls}">
+                        <td style="text-align:left; font-weight:700;">${row.name}</td>
+                        ${row.val.map(v => {
+                            const colClass = row.hm ? getHeatmapClass(v, maxAbs) : (v < 0 ? 'text-red-700' : '');
+                            return `<td class="${colClass}">${formatUSD(v / 1000)}k</td>`;
+                        }).join('')}
+                        <td><strong>${row.finalHighlight ? formatUSD(row.val[11]) : formatUSD(sum(row.val) / 1000) + 'k'}</strong></td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody>';
+            const planningGrid = document.getElementById('detailed-planning-grid');
+            if (planningGrid) {
+                planningGrid.innerHTML = html;
+            }
+        }
+
+        function handleCellOverride(skuName, rowField, monthIdx, value) {
+            const val = parseFloat(value) || 0;
+            AppState.extensiveGrid[skuName][rowField][monthIdx] = Math.max(0, val);
+            runCalculations();
+        }
+
+        function renderSKUEconomicsTable() {
+            let html = `
+                <thead>
+                    <tr>
+                        <th style="text-align:left;">SKU Product</th>
+                        <th>Initial Stock</th>
+                        <th>Avg Demand Size</th>
+                        <th>List Price MSRP</th>
+                        <th>Realization %</th>
+                        <th>Effective ASP</th>
+                        <th>Unit Sourcing Cost</th>
+                        <th>Channel Costs %</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+
+            AppState.skus.forEach((sku, idx) => {
+                html += `
+                    <tr>
+                        <td style="text-align:left;"><strong>${sku.name}</strong></td>
+                        <td><input type="number" value="${sku.openStock}" oninput="handleSKUParam(${idx}, 'openStock', this.value)"></td>
+                        <td><input type="number" value="${sku.baseDemand}" oninput="handleSKUParam(${idx}, 'baseDemand', this.value)"></td>
+                        <td><input type="number" value="${sku.listPrice}" oninput="handleSKUParam(${idx}, 'listPrice', this.value)"></td>
+                        <td><input type="number" step="0.5" value="${sku.realizedPct}" oninput="handleSKUParam(${idx}, 'realizedPct', this.value)"></td>
+                        <td><strong>${formatUSD(sku.listPrice * (sku.realizedPct/100))}</strong></td>
+                        <td><input type="number" step="0.1" value="${sku.unitCost}" oninput="handleSKUParam(${idx}, 'unitCost', this.value)"></td>
+                        <td><input type="number" step="0.5" value="${sku.channelCostPct}" oninput="handleSKUParam(${idx}, 'channelCostPct', this.value)"></td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody>';
+            const econtable = document.getElementById('sku-parameters-table');
+            if (econtable) {
+                econtable.innerHTML = html;
+            }
+        }
+
+        function handleSKUParam(skuIdx, field, val) {
+            AppState.skus[skuIdx][field] = parseFloat(val) || 0;
+            applyMasterDriversFromUnits();
+            runCalculations();
+        }
+
+        function handleGlobalInput() {
+            AppState.openCash = parseFloat(document.getElementById('input-openCash').value) || 0;
+            AppState.stableBurn = parseFloat(document.getElementById('input-burn').value) || 0;
+            AppState.extraOpEx = parseFloat(document.getElementById('input-opex').value) || 0;
+            AppState.demandGrowth = parseFloat(document.getElementById('input-grow').value) || 0;
+            AppState.dspMonthly = parseFloat(document.getElementById('input-dspMonthly').value) || 0;
+            AppState.depPct = parseFloat(document.getElementById('input-dep').value) || 0;
+            AppState.other = parseFloat(document.getElementById('input-other').value) || 0;
+            AppState.col0 = parseFloat(document.getElementById('input-col0').value) || 0;
+            AppState.col1 = parseFloat(document.getElementById('input-col1').value) || 0;
+            AppState.landedBuffer = parseFloat(document.getElementById('input-landedBuffer').value) || 0;
+
+            applyMasterDriversFromUnits();
+            runCalculations();
+        }
+
+        function runGoalSeek() {
+            const target = parseFloat(document.getElementById('input-goalseek-target').value) || 0;
+            
+            let lower = 0;
+            let upper = 35000;
+            let bestPO = 0;
+            let iterations = 35;
+            let solved = false;
+
+            while (iterations > 0) {
+                const midUnits = Math.round((lower + upper) / 2);
+                
+                let testState = JSON.parse(JSON.stringify(AppState));
+                testState.masterUnits = midUnits;
+                testState.skus.forEach((sku, idx) => {
+                    sku.orderUnits = Math.round((midUnits * testState.allocations[idx] / 100) / 50) * 50;
+                });
+
+                const out = runConsolidatedSolver(testState);
+                const trough = Math.min(...out.cumulativeCash);
+
+                if (trough >= target) {
+                    bestPO = midUnits;
+                    lower = midUnits + 1; 
+                    solved = true;
+                } else {
+                    upper = midUnits - 1; 
+                }
+                iterations--;
+            }
+
+            const outputEl = document.getElementById('output-goalseek-result');
+            if (outputEl) {
+                if (solved) {
+                    outputEl.value = `${formatNum(bestPO)} units (Limit Trough: ${formatUSD(Math.min(...runConsolidatedSolver(Object.assign({}, AppState, {masterUnits: bestPO, skus: AppState.skus.map((s,i)=>Object.assign({}, s, {orderUnits: Math.round((bestPO * AppState.allocations[i]/100)/50)*50}))})).cumulativeCash))})`;
+                    showToast(`Optimized Sizing: Solved for ${formatNum(bestPO)} units.`, "success");
+                } else {
+                    outputEl.value = `Unsolvable for target!`;
+                    showToast("Solver Failed: Target cash trough is out of boundary.", "error");
+                }
+            }
+        }
+
+        function renderSensitivitySandbox() {
+            const out = runConsolidatedSolver(AppState);
+            const baseRev = sum(out.revenue);
+            const baseGP = baseRev - sum(out.channelCosts) - sum(out.cogs);
+            const baseTrough = Math.min(...out.cumulativeCash);
+            const baseNetCash = out.cumulativeCash[11] - AppState.openCash;
+
+            const sensitivities = [
+                {
+                    name: 'PAL PPC Marketing Costs downsized',
+                    action: () => {
+                        let state = JSON.parse(JSON.stringify(AppState));
+                        state.skus[0].channelCostPct = Math.max(0, state.skus[0].channelCostPct - 5);
+                        return runConsolidatedSolver(state);
+                    }
+                },
+                {
+                    name: 'Realized retail ASP holds strong MTD (+10%)',
+                    action: () => {
+                        let state = JSON.parse(JSON.stringify(AppState));
+                        state.skus.forEach(s => s.realizedPct = Math.min(100, s.realizedPct + 10));
+                        return runConsolidatedSolver(state);
+                    }
+                },
+                {
+                    name: 'Demand surges beyond projections (+20% Growth)',
+                    action: () => {
+                        let state = JSON.parse(JSON.stringify(AppState));
+                        state.demandGrowth += 20;
+                        return runConsolidatedSolver(state);
+                    }
+                },
+                {
+                    name: 'Sourcing logistics first batch delay (+1 month)',
+                    action: () => {
+                        let state = JSON.parse(JSON.stringify(AppState));
+                        state.skus.forEach(s => s.firstArrivalMo = Math.min(11, s.firstArrivalMo + 1));
+                        return runConsolidatedSolver(state);
+                    }
+                },
+                {
+                    name: 'Fixed operational corporate burn reduced (-$10k/mo)',
+                    action: () => {
+                        let state = JSON.parse(JSON.stringify(AppState));
+                        state.stableBurn = Math.max(0, state.stableBurn - 10000);
+                        return runConsolidatedSolver(state);
+                    }
+                }
+            ];
+
+            let html = `
+                <thead>
+                    <tr>
+                        <th style="text-align:left;">Simulated Parameter Shifting</th>
+                        <th>Resulting FY Revenue</th>
+                        <th>Resulting Landed GP</th>
+                        <th>Target Cash Trough Shift</th>
+                        <th>Net Balance Delta</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+
+            sensitivities.forEach(item => {
+                const results = item.action();
+                const deltaRev = sum(results.revenue) - baseRev;
+                const deltaGP = (sum(results.revenue) - sum(results.channelCosts) - sum(results.cogs)) - baseGP;
+                const deltaTrough = Math.min(...results.cumulativeCash) - baseTrough;
+                const deltaNetCash = (results.cumulativeCash[11] - AppState.openCash) - baseNetCash;
+
+                html += `
+                    <tr>
+                        <td style="text-align:left;"><strong>${item.name}</strong></td>
+                        <td>${formatUSD(sum(results.revenue))} <span class="${deltaRev < 0 ? 'text-red-700' : 'text-green-700'}">(${deltaRev >= 0 ? '+' : ''}${formatUSD(deltaRev)})</span></td>
+                        <td>${formatUSD(sum(results.revenue) - sum(results.channelCosts) - sum(results.cogs))} <span class="${deltaGP < 0 ? 'text-red-700' : 'text-green-700'}">(${deltaGP >= 0 ? '+' : ''}${formatUSD(deltaGP)})</span></td>
+                        <td class="${deltaTrough < 0 ? 'text-red-700' : 'text-green-700'}"><strong>${deltaTrough >= 0 ? '+' : ''}${formatUSD(deltaTrough)}</strong></td>
+                        <td class="${deltaNetCash < 0 ? 'text-red-700' : 'text-green-700'}"><strong>${deltaNetCash >= 0 ? '+' : ''}${formatUSD(deltaNetCash)}</strong></td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody>';
+            const sensTable = document.getElementById('sensitivity-impact-table');
+            if (sensTable) {
+                sensTable.innerHTML = html;
+            }
+        }
+
+        function toggleAdvisoryExpand(id) {
+            ExpandedAdvisories[id] = !ExpandedAdvisories[id];
+            runCalculations();
+        }
+
+        function renderAuditsAdvisories(out) {
+            const trough = Math.min(...out.cumulativeCash);
+            const proEndingStock = out.skuFlows.PRO.endingInventory[11];
+            const baseGP = sum(out.revenue) - sum(out.channelCosts) - sum(out.cogs);
+            const burnTotal = (AppState.stableBurn + AppState.extraOpEx) * 12;
+
+            let alerts = [];
+
+            // 1. Trough Alarm
+            if (trough < 0) {
+                alerts.push({
+                    id: 'trough',
+                    title: `Peak Funding Gap: Trough drops to deficit of ${formatUSD(trough)}.`,
+                    desc: `Maximum capital deficit hits ${formatUSD(trough)} in ${MONTHS[out.cumulativeCash.indexOf(trough)]}. Secure a $400k-450k committed facility immediately to absorb supplier payments before winter collections.`,
+                    lvl: 'red'
+                });
+            } else {
+                alerts.push({
+                    id: 'trough',
+                    title: 'Self-Funded Balance: No cash deficit is projected across this scenario.',
+                    desc: `Operating metrics indicate the company is fully self-funded throughout the year, with positive cash headroom maintained.`,
+                    lvl: 'green'
+                });
+            }
+
+            // 2. Safety Stock Order Alarm
+            if (proEndingStock < 200) {
+                alerts.push({
+                    id: 'proStock',
+                    title: `PRO Stockout Threat: Ending safety stock drops to critical ${formatNum(proEndingStock)} units.`,
+                    desc: `PRO is projected to close the fiscal year with only ${formatNum(proEndingStock)} units of safety stock. Initiate a pre-CNY component order (Dec-26) to avoid physical stock depletions next autumn peak.`,
+                    lvl: 'red'
+                });
+            } else {
+                alerts.push({
+                    id: 'proStock',
+                    title: `Safety Stock Levels Secure: PRO ends year at comfortable ${formatNum(proEndingStock)} units.`,
+                    desc: `PRO ends the year with healthy reserves above the dangerous stockout threshold (limit > 200 units).`,
+                    lvl: 'green'
+                });
+            }
+
+            // 3. Margin COGS Warning (KI-1)
+            const marginLossRisk = AppState.landedBuffer === 0;
+            if (marginLossRisk) {
+                alerts.push({
+                    id: 'cogsLedger',
+                    title: 'Sellerboard Landed Cost Alert: Margin reports may be up to 5 points optimistic.',
+                    desc: `Sellerboard understates landed cost by $6-8/unit. Ensure Landed Cost Buffer is calibrated (+6.00 recommended) to secure margin reporting integrity.`,
+                    lvl: 'amber'
+                });
+            } else {
+                alerts.push({
+                    id: 'cogsLedger',
+                    title: `Landed Cost Buffer Engaged: Landed buffer surcharge of ${formatUSD(AppState.landedBuffer)} applied.`,
+                    desc: `COGS reporting successfully reflects manufacturing logistics buffer, preserving spreadsheet margin integrity.`,
+                    lvl: 'green'
+                });
+            }
+
+            // 4. Corporate Burn coverage audit
+            const coverageRatio = baseGP / Math.max(1, burnTotal);
+            if (coverageRatio < 1.0) {
+                alerts.push({
+                    id: 'coverage',
+                    title: `Burn Coverage Warning: GP (${formatUSD(baseGP)}) covers only ${Math.round(coverageRatio * 100)}% of opex.`,
+                    desc: `Current Gross Profit is insufficient to cover fixed opex outlays of ${formatUSD(burnTotal)}. A structural corporate cost-structure review is highly recommended.`,
+                    lvl: 'amber'
+                });
+            } else {
+                alerts.push({
+                    id: 'coverage',
+                    title: `Margin Coverage Validated: Fixed corporate overhead successfully covered (${Math.round(coverageRatio * 100)}%).`,
+                    desc: `Operating margins represent healthy overhead coverage. Net income surplus propagates directly to bank cash.`,
+                    lvl: 'green'
+                });
+            }
+
+            // 5. MAX Demand shape uncertainty (KI-3)
+            alerts.push({
+                id: 'maxUncertainty',
+                title: 'MAX Demand Signal Advisory: Fitted ramp model requires close tracking.',
+                desc: 'MAX has under 12 months history. Width of demand plan uncertainty is highest here. Next checkpoint: Aug-01-26 July ASP results.',
+                lvl: 'amber'
+            });
+
+            const alertsList = document.getElementById('audit-alerts-list');
+            if (alertsList) {
+                alertsList.innerHTML = alerts.map(a => {
+                    const expanded = ExpandedAdvisories[a.id];
+                    return `
+                        <div class="advisory-item ${a.lvl}">
+                            <div class="advisory-header-row" onclick="toggleAdvisoryExpand('${a.id}')">
+                                <div class="advisory-header-left">
+                                    <span class="badge">${a.lvl === 'red' ? '⚠️ critical' : (a.lvl === 'amber' ? '🔔 audit' : '✓ clear')}</span>
+                                    <span class="advisory-title-txt">${a.title}</span>
+                                </div>
+                                <button class="advisory-expand-btn">${expanded ? '−' : '+'}</button>
+                            </div>
+                            <div class="advisory-body ${expanded ? 'expanded' : ''}">
+                                <p>${a.desc}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        function syncHorseraceData(out) {
+            let skuCum = AppState.skus.map(s => {
+                let current = 0;
+                return out.skuFlows[s.name].revenue.map(val => current += val);
+            });
+
+            let cumIn = 0;
+            let cumOut = 0;
+            const burnFactor = AppState.stableBurn + AppState.extraOpEx;
+
+            let cashInSeries = out.collections.map(v => cumIn += v);
+            let cashOutSeries = out.supplierPayments.map((v, idx) => cumOut += (v + burnFactor));
+
+            const colors = ['#2E75B6', '#1F3864', '#70AD47'];
+            const series = AppState.skus.map((s, i) => ({
+                name: s.name, color: colors[i], vals: skuCum[i]
+            })).concat([
+                { name: 'Cash In', color: 'var(--green-600)', vals: cashInSeries },
+                { name: 'Cash Out', color: 'var(--red-600)', vals: cashOutSeries },
+                { name: 'Net Balance', color: 'var(--navy-600)', vals: out.cumulativeCash }
+            ]);
+
+            const winSku = series.slice(0,3).reduce((acc, curr) => curr.vals[11] > acc.vals[11] ? curr : acc);
+            const troughIdx = out.cumulativeCash.indexOf(Math.min(...out.cumulativeCash));
+
+            StoryState.stops = [
+                { p: 0, m: MONTHS[0], title: 'The race begins', r0: 'Summer dip out', r1: formatUSD(out.supplierPayments[0]) },
+                { p: troughIdx, m: MONTHS[troughIdx], title: 'Cash Trough Max', r0: 'Funding Deficit', r1: formatUSD(Math.min(...out.cumulativeCash)) },
+                { p: 2, m: MONTHS[2], title: 'Batch 1 Lands', r0: 'Incoming units', r1: formatNum(sum(AppState.skus.map(s => out.skuFlows[s.name].receipts[2]))) },
+                { p: 4, m: MONTHS[4], title: 'Winter Holiday Peak', r0: 'Highest Revenue', r1: formatUSD(out.revenue[4]) },
+                { p: 11, m: MONTHS[11], title: 'Finish Line Results', r0: 'Top Performer', r1: winSku.name + ' ' + formatUSD(winSku.vals[WinSkuIndexCheck(winSku)]) }
+            ].sort((a,b) => a.p - b.p);
+
+            renderHorseraceCards();
+            renderRaceSVGTrack(series);
+        }
+
+        function WinSkuIndexCheck(sku) {
+            return sku.vals.length - 1;
+        }
+
+        function renderRaceSVGTrack(series) {
+            const W = 620, H = 220, P = { l: 40, r: 120, t: 12, b: 24 };
+            const allVals = series.flatMap(s => s.vals);
+            const maxVal = Math.max(1, ...allVals) * 1.05;
+            const minVal = Math.min(0, ...allVals) * 1.05;
+
+            const getX = idx => P.l + (W - P.l - P.r) * (idx / 11);
+            const getY = val => P.t + (H - P.t - P.b) * (1 - (val - minVal) / (maxVal - minVal));
+
+            let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="background:#fff; border-radius:12px; border:1px solid var(--slate-200);">`;
+            
+            for (let i = 0; i <= 4; i++) {
+                const v = minVal + (maxVal - minVal) * i / 4;
+                const y = getY(v);
+                svg += `<line x1="${P.l}" x2="${W-P.r}" y1="${y}" y2="${y}" stroke="var(--slate-200)" stroke-dasharray="2 4"/>`;
+                svg += `<text x="${P.l - 4}" y="${y + 2}" font-size="6" fill="#94a3b8" text-anchor="end">${formatUSD(v/1000)}k</text>`;
+            }
+
+            MONTHS.forEach((m, idx) => {
+                svg += `<text x="${getX(idx)}" y="${H - 6}" font-size="6.5" font-weight="700" fill="#64748b" text-anchor="middle">${m.slice(0,3)}</text>`;
+            });
+
+            svg += `<clipPath id="clippath-race"><rect id="cliprect-race" x="${P.l}" y="0" width="${W - P.l - P.r}" height="${H}"/></clipPath>`;
+            
+            series.forEach((sr) => {
+                let d = `M${getX(0)},${getY(sr.vals[0])}`;
+                for (let i = 1; i < 12; i++) {
+                    d += ` L${getX(i)},${getY(sr.vals[i])}`;
+                }
+                svg += `<path d="${d}" stroke="${sr.color}" stroke-width="2" fill="none" opacity="0.8" clip-path="url(#clippath-race)" />`;
+            });
+
+            // Resolving Label Collisions Algorithm
+            let activeLabels = series.map(sr => {
+                const currentVal = sr.vals[StoryState.curP];
+                return {
+                    name: sr.name,
+                    color: sr.color,
+                    val: currentVal,
+                    rawY: getY(currentVal),
+                    y: getY(currentVal),
+                    x: getX(StoryState.curP)
+                };
+            });
+
+            // Sort active labels visually by raw Y height (ascending: top to bottom of screen)
+            activeLabels.sort((a, b) => a.y - b.y);
+
+            // Bulletproof stacking de-confliction
+            let lastY = -999;
+            const minSpacing = 11; // spacing threshold in pixels
+            activeLabels.forEach(lbl => {
+                lbl.y = Math.max(lbl.y, lastY + minSpacing);
+                lastY = lbl.y;
+            });
+
+            // Draw clean dots and dynamic labels
+            activeLabels.forEach(lbl => {
+                svg += `<circle cx="${lbl.x}" cy="${lbl.rawY}" r="3.5" fill="${lbl.color}" stroke="#ffffff" stroke-width="1.5" />`;
+                svg += `<text x="${lbl.x + 8}" y="${lbl.y + 2.5}" font-size="7" font-weight="800" fill="${lbl.color}">${lbl.name} ${formatUSD(lbl.val/1000)}k</text>`;
+            });
+
+            svg += '</svg>';
+            const raceView = document.getElementById('horserace-canvas-view');
+            if (raceView) {
+                raceView.innerHTML = svg;
+            }
+
+            const rect = document.getElementById('cliprect-race');
+            if (rect) {
+                rect.setAttribute('width', String(Math.max(0, getX(StoryState.curP) - P.l)));
+            }
+        }
+
+        function renderHorseraceCards() {
+            const cardsLog = document.getElementById('horserace-cards-log');
+            if (cardsLog) {
+                cardsLog.innerHTML = StoryState.stops.map((s, i) => `
+                    <div class="story-card ${i === StoryState.idx ? 'active' : 'past'}" id="step_${i}" onclick="jumpToStep(${i})">
+                        <span class="step-meta">${s.m} · Step ${i+1}</span>
+                        <h5 class="step-title">${s.title}</h5>
+                        <table>
+                            <tr>
+                                <td>${s.r0}</td>
+                                <td>${s.r1}</td>
+                            </tr>
+                        </table>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function jumpToStep(idx) {
+            StoryState.auto = false;
+            clearTimeout(StoryState.tm);
+            StoryState.idx = idx;
+            StoryState.revealed = Math.max(StoryState.revealed, idx);
+            StoryState.curP = StoryState.stops[idx].p;
+            runCalculations();
+        }
+
+        function playRaceTimeline(force) {
+            if (StoryState.auto && !force) return;
+            StoryState.auto = true;
+            StoryState.idx = -1;
+            StoryState.curP = 0;
+            
+            function step() {
+                if (!StoryState.auto) return;
+                StoryState.idx++;
+                if (StoryState.idx >= StoryState.stops.length) {
+                    StoryState.auto = false;
+                    StoryState.idx = StoryState.stops.length - 1;
+                    runCalculations();
+                    return;
+                }
+                StoryState.curP = StoryState.stops[StoryState.idx].p;
+                runCalculations();
+                StoryState.tm = setTimeout(step, 3000);
+            }
+            step();
+        }
+
+        function setupInteractiveTooltips() {
+            const tip = document.getElementById('interactive-tooltip');
+            const targets = document.querySelectorAll('[data-t]');
+
+            targets.forEach(t => {
+                t.addEventListener('mouseover', (e) => {
+                    tip.innerHTML = t.getAttribute('data-t');
+                    tip.style.display = 'block';
+                    positionTooltip(e);
+                });
+                t.addEventListener('mousemove', (e) => { positionTooltip(e); });
+                t.addEventListener('mouseout', () => { tip.style.display = 'none'; });
+            });
+        }
+
+        function positionTooltip(e) {
+            const tip = document.getElementById('interactive-tooltip');
+            const pad = 12;
+            let x = e.clientX + pad;
+            let y = e.clientY + pad;
+
+            if (x + tip.offsetWidth > window.innerWidth) {
+                x = e.clientX - tip.offsetWidth - pad;
+            }
+            if (y + tip.offsetHeight > window.innerHeight) {
+                y = e.clientY - tip.offsetHeight - pad;
+            }
+            tip.style.left = `${x}px`;
+            tip.style.top = `${y}px`;
+        }
+
+        function copyForGoogleSheets() {
+            const matrix = getExportMatrix();
+            const tsvString = matrix.map(row => row.join('\t')).join('\n');
+
+            const area = document.createElement('textarea');
+            area.value = tsvString;
+            document.body.appendChild(area);
+            area.select();
+            try {
+                document.execCommand('copy');
+                showToast('Copied successfully! Paste directly in Google Sheets.', 'success');
+            } catch (err) {
+                showToast('Clipboard access blocked!', 'error');
+            }
+            document.body.removeChild(area);
+        }
+
+        function exportCSV() {
+            const matrix = getExportMatrix();
+            const csvContent = matrix.map(row => row.map(cell => {
+                const str = String(cell ?? '');
+                return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+            }).join(',')).join('\n');
+
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute('download', `Scanmarker_Operations_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('CSV export saved successfully.', 'success');
+        }
+
+        function getExportMatrix() {
+            const out = runConsolidatedSolver(AppState);
+            let rows = [];
+
+            rows.push(['Scanmarker Operations Master Ledger Projections']);
+            rows.push(['Generation timestamp', new Date().toISOString()]);
+            rows.push(['Simulation Forecast Mode', AppState.engineMode.toUpperCase()]);
+            rows.push([]);
+
+            rows.push(['Global Assumptions Summary']);
+            rows.push(['Stable Burn Rate', AppState.stableBurn]);
+            rows.push(['Extra Temporary OpEx', AppState.extraOpEx]);
+            rows.push(['Opening Bank cash', AppState.openCash]);
+            rows.push(['Blended factory cost', getBlendedUnitCost()]);
+            rows.push([]);
+
+            rows.push(['Metric Plan Ledger Rows', ...MONTHS, 'Full Year / End']);
+            
+            AppState.skus.forEach(s => {
+                const flow = out.skuFlows[s.name];
+                rows.push([`${s.name} Demand`, ...flow.demand, sum(flow.demand)]);
+                rows.push([`${s.name} Receipts`, ...flow.receipts, sum(flow.receipts)]);
+                rows.push([`${s.name} Sold`, ...flow.sold, sum(flow.sold)]);
+                rows.push([`${s.name} Stock Ending`, ...flow.endingInventory, flow.endingInventory[11]]);
+            });
+
+            rows.push([]);
+            rows.push(['Consolidated Results Matrix ($000s)']);
+            
+            const cashRows = [
+                { name: 'Revenue', arr: out.revenue },
+                { name: 'Channel Costs', arr: out.channelCosts },
+                { name: 'Sourcing Cost COGS', arr: out.cogs },
+                { name: 'Lag Collections', arr: out.collections },
+                { name: 'Supplier payments Out', arr: out.supplierPayments },
+                { name: 'Net cash flow monthly', arr: out.netCash },
+                { name: 'Cumulative bank Cash Balance', arr: out.cumulativeCash, isCumulative: true }
+            ];
+
+            cashRows.forEach(r => {
+                const total = r.isCumulative ? r.arr[11] : sum(r.arr);
+                rows.push([r.name, ...r.arr.map(val => Math.round(val)), Math.round(total)]);
+            });
+
+            return rows;
+        }
+
+        function loadScenarioList() {
+            let list = JSON.parse(localStorage.getItem('scanmarker_saved_scenarios')) || [];
+            
+            // Populate Slots List
+            const listContainer = document.getElementById('scenario-slots-list-box');
+            if (listContainer) {
+                if (list.length === 0) {
+                    listContainer.innerHTML = `<p style="font-size: 10px; color: var(--navy-600); text-align: center; padding: 12px 0;">No slots occupied.</p>`;
+                } else {
+                    listContainer.innerHTML = list.map((sc, idx) => `
+                        <div onclick="selectScenarioSlot(${idx})" class="scenario-slot-item ${idx === SelectedScenarioIndex ? 'selected' : ''}">
+                            <span class="scenario-slot-name">${sc.name}</span>
+                            <span class="scenario-slot-meta">${formatNum(sc.state.masterUnits)} u</span>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // Populate Comparison Table
+            let table = document.getElementById('saved-scenarios-comparison');
+            if (!table) return;
+
+            let html = `
+                <thead>
+                    <tr>
+                        <th style="text-align:left;">Scenario File Name</th>
+                        <th>PO Units</th>
+                        <th>Net Balance Delta</th>
+                        <th>Peak Trough</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+
+            if (list.length === 0) {
+                html += `<tr><td colspan="4" style="text-align:center; color:var(--navy-600);">No custom scenarios saved in browser storage.</td></tr>`;
+            } else {
+                list.forEach((sc) => {
+                    const testOut = runConsolidatedSolver(sc.state);
+                    const deltaBalance = testOut.cumulativeCash[11] - sc.state.openCash;
+                    const trough = Math.min(...testOut.cumulativeCash);
+
+                    html += `
+                        <tr>
+                            <td style="text-align:left;"><strong>${sc.name}</strong></td>
+                            <td>${formatNum(sc.state.masterUnits)} u</td>
+                            <td class="${deltaBalance < 0 ? 'text-red-700' : 'text-green-700'}">${formatUSD(deltaBalance)}</td>
+                            <td class="${trough < 0 ? 'text-red-700' : 'text-green-700'}">${formatUSD(trough)}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += '</tbody>';
+            table.innerHTML = html;
+        }
+
+        function selectScenarioSlot(idx) {
+            SelectedScenarioIndex = idx;
+            loadScenarioList();
+        }
+
+        function loadSelectedScenarioSlot() {
+            if (SelectedScenarioIndex === -1) {
+                showToast("Please select a scenario slot first!", "error");
+                return;
+            }
+            let list = JSON.parse(localStorage.getItem('scanmarker_saved_scenarios')) || [];
+            if (list[SelectedScenarioIndex]) {
+                AppState = list[SelectedScenarioIndex].state;
+                applyMasterDriversFromUnits();
+                runCalculations();
+                showToast(`Loaded scenario: ${list[SelectedScenarioIndex].name}`, 'success');
+            }
+        }
+
+        function deleteSelectedScenarioSlot() {
+            if (SelectedScenarioIndex === -1) {
+                showToast("Please select a scenario slot first!", "error");
+                return;
+            }
+            let list = JSON.parse(localStorage.getItem('scanmarker_saved_scenarios')) || [];
+            list.splice(SelectedScenarioIndex, 1);
+            localStorage.setItem('scanmarker_saved_scenarios', JSON.stringify(list));
+            SelectedScenarioIndex = -1;
+            loadScenarioList();
+            showToast('Scenario deleted from storage.', 'success');
+        }
+
+        function saveCurrentScenario() {
+            const nameInput = document.getElementById('input-save-scenario-name');
+            const name = nameInput.value.trim();
+            if (!name) {
+                showToast('Please enter a valid scenario name!', 'error');
+                return;
+            }
+
+            let list = JSON.parse(localStorage.getItem('scanmarker_saved_scenarios')) || [];
+            list.push({
+                name: name,
+                state: AppState
+            });
+
+            localStorage.setItem('scanmarker_saved_scenarios', JSON.stringify(list));
+            nameInput.value = '';
+            loadScenarioList();
+            showToast('Scenario successfully saved!', 'success');
+        }
+
+        function exportStateJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(AppState, null, 2));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", `Scanmarker_State_Export_${new Date().toISOString().slice(0, 10)}.json`);
+            dlAnchorElem.click();
+            showToast('JSON configurations exported.', 'success');
+        }
+
+        function triggerJSONImport() {
+            document.getElementById('import-json-file').click();
+        }
+
+        function handleJSONImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsedState = JSON.parse(e.target.result);
+                    if (parsedState.skus && parsedState.allocations) {
+                        AppState = parsedState;
+                        applyMasterDriversFromUnits();
+                        runCalculations();
+                        showToast('Scenario import loaded successfully!', 'success');
+                    } else {
+                        showToast('Invalid JSON file format!', 'error');
+                    }
+                } catch (err) {
+                    showToast('Error parsing JSON parameters!', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function resetBlock(blockId) {
+            if (blockId === 'drivers') {
+                AppState.masterUnits = 17000;
+                applyMasterDriversFromUnits();
+            } else if (blockId === 'allocations') {
+                AppState.allocations = [40, 40, 20];
+                AppState.skus.forEach((s, idx) => {
+                    s.orderUnits = Math.round((AppState.masterUnits * AppState.allocations[idx] / 100) / 50) * 50;
+                });
+                rebuildAllocInputs();
+                applyMasterDriversFromUnits();
+            } else if (blockId === 'globals') {
+                AppState.openCash = 0;
+                AppState.stableBurn = 140000;
+                AppState.extraOpEx = 0;
+                AppState.dspMonthly = 5000;
+                AppState.depPct = 30;
+                AppState.col0 = 70;
+                AppState.col1 = 24;
+                AppState.demandGrowth = 0;
+                AppState.landedBuffer = 0;
+
+                document.getElementById('input-openCash').value = 0;
+                document.getElementById('input-burn').value = 140000;
+                document.getElementById('input-opex').value = 0;
+                document.getElementById('input-grow').value = 0;
+                document.getElementById('input-dspMonthly').value = 5000;
+                document.getElementById('input-dep').value = 30;
+                document.getElementById('input-col0').value = 70;
+                document.getElementById('input-col1').value = 24;
+                document.getElementById('input-landedBuffer').value = 0;
+            } else if (blockId === 'skus') {
+                AppState.skus = JSON.parse(JSON.stringify(DEFAULT_SKU_PARAMS));
+                AppState.skus.forEach((s, idx) => {
+                    s.orderUnits = Math.round((AppState.masterUnits * AppState.allocations[idx] / 100) / 50) * 50;
+                });
+            }
+            runCalculations();
+            showToast('Parameters reset to target defaults.', 'success');
+        }
+
+        function resetManualCells() {
+            resetExtensiveManualGrid();
+            runCalculations();
+            showToast('Extensive grid manual overrides reset.', 'success');
+        }
+
+        function switchTab(tabId) {
+            AppState.currentTab = tabId;
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => {
+                if (btn.id === `tab-btn-${tabId}`) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            const panes = document.querySelectorAll('.tab-pane');
+            panes.forEach(pane => {
+                if (pane.id === `tab-content-${tabId}`) {
+                    pane.classList.remove('hidden');
+                } else {
+                    pane.classList.add('hidden');
+                }
+            });
+        }
+
+        // MATH HELPERS
+        function sum(arr) {
+            return arr.reduce((acc, val) => acc + val, 0);
+        }
+
+        function formatUSD(val) {
+            if (val === undefined || isNaN(val)) return '$0';
+            const clean = Math.round(val);
+            const neg = clean < 0;
+            return `${neg ? '−' : ''}$${Math.abs(clean).toLocaleString()}`;
+        }
+
+        function formatNum(val) {
+            if (val === undefined || isNaN(val)) return '0';
+            return Math.round(val).toLocaleString();
+        }
+
+        function getYoYBadge(curr, prev) {
+            if (!prev) return '';
+            const diff = Math.round(((curr / prev) - 1) * 100);
+            return `<span class="yoy-badge ${diff >= 0 ? 'up' : 'down'}">${diff >= 0 ? '+' : ''}${diff}%</span>`;
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-manager-container');
+            if (container) {
+                const el = document.createElement('div');
+                el.className = `custom-toast ${type}`;
+                el.innerHTML = `<span>${type === 'error' ? '❌' : '✓'}</span> <span>${message}</span>`;
+                container.appendChild(el);
+                setTimeout(() => {
+                    el.style.animation = "slideInToast 0.25s ease-out reverse forwards";
+                    setTimeout(() => el.remove(), 250);
+                }, 3500);
+            }
+        }
+
+        function setupKeyboardNavigation() {
+            document.addEventListener('keydown', e => {
+                if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+                
+                const focusedElement = document.activeElement.tagName.toLowerCase();
+                if (focusedElement === 'input' || focusedElement === 'select' || focusedElement === 'textarea') return;
+
+                e.preventDefault();
+                if (e.key === 'ArrowRight') {
+                    const nextStepIdx = Math.min(StoryState.stops.length - 1, StoryState.idx + 1);
+                    jumpToStep(nextStepIdx);
+                } else if (e.key === 'ArrowLeft') {
+                    if (StoryState.auto) {
+                        StoryState.auto = false;
+                        clearTimeout(StoryState.tm);
+                    }
+                    const prevStepIdx = Math.max(0, StoryState.idx - 1);
+                    jumpToStep(prevStepIdx);
+                }
+            });
+        }
+
+        /* ==========================================================
+           🤖 STREAMING_CHUNK: INTEGRATING THE NATIVE GEMINI LLM API
+           ========================================================== */
+
+        // Serializes current active parameters into clear text grounding content for Gemini
+        function getSerializedAppState(out) {
+            const totalRev = sum(out.revenue);
+            const totalGP = totalRev - sum(out.channelCosts) - sum(out.cogs);
+            const troughValue = Math.min(...out.cumulativeCash);
+            const lostSalesVal = sum(out.lostRevenue);
+
+            let str = `Active Scanmarker Solver Parameters State:
+- Forecast Mode: ${AppState.engineMode.toUpperCase()}
+- Sizing Commitment: ${AppState.masterUnits.toLocaleString()} units
+- Supplier Sourcing Budget: ${formatUSD(AppState.masterBudget)}
+- Product Allocations: PAL (${AppState.allocations[0]}%), PRO (${AppState.allocations[1]}%), MAX (${AppState.allocations[2]}%)
+- Global Sourcing Logistics Buffer Surcharge: ${formatUSD(AppState.landedBuffer)} per unit
+- Stable Corporate Burn Rate: ${formatUSD(AppState.stableBurn)} per month
+- Extra Temporary Operating Expenses: ${formatUSD(AppState.extraOpEx)} per month
+- Amazon DSP Display Advertising Budget: ${formatUSD(AppState.dspMonthly)} per month
+- Customer Payment Collections lag parameters: In-month lag0 = ${AppState.col0}%, Month+1 lag1 = ${AppState.col1}%, Remainder lag2 = ${Math.max(0, 100 - AppState.col0 - AppState.col1)}%
+
+Current Calculated Output Metrics:
+- FY Projections Total Revenue: ${formatUSD(totalRev)}
+- FY Projections Total Gross Profit: ${formatUSD(totalGP)} (Gross Margin Pct: ${totalRev > 0 ? Math.round(totalGP/totalRev*100) : 0}%)
+- Net Cash Change inside Period: ${formatUSD(out.cumulativeCash[11] - AppState.openCash)}
+- Maximum Projected Working Capital Trough (Max Deficit): ${formatUSD(troughValue)}
+- Total Lost Sales Value due to inventory outages: ${formatUSD(lostSalesVal)}
+
+Current SKUs details:
+`;
+            AppState.skus.forEach((s, i) => {
+                const skuFlow = out.skuFlows[s.name];
+                let stockoutMonth = 'none';
+                for (let m = 0; m < 12; m++) {
+                    if (skuFlow.sold[m] < skuFlow.demand[m]) {
+                        stockoutMonth = MONTHS[m];
+                        break;
+                    }
+                }
+                str += `- SKU ${s.name}: Opening stock = ${s.openStock}, Planned Order units = ${s.orderUnits}, Landed Sourcing Cost = ${formatUSD(getLandedCost(s, AppState))}, Selling Price MSRP = ${formatUSD(s.listPrice)}, Effective realization = ${s.realizedPct}%, First Stockout out month = ${stockoutMonth}, Ending physical stock inventory = ${skuFlow.endingInventory[11]}\n`;
+            });
+
+            return str;
+        }
+
+        // Live synchronizer between the main thread engine results and the AI Context Side Card
+        function syncAICopilotContext(out) {
+            const totalRev = sum(out.revenue);
+            const totalGP = totalRev - sum(out.channelCosts) - sum(out.cogs);
+            const troughValue = Math.min(...out.cumulativeCash);
+            const lostSalesVal = sum(out.lostRevenue);
+
+            const revEl = document.getElementById('ai-ctx-revenue');
+            const gpEl = document.getElementById('ai-ctx-gp');
+            const troughEl = document.getElementById('ai-ctx-trough');
+            const lostEl = document.getElementById('ai-ctx-lost-sales');
+            const poEl = document.getElementById('ai-ctx-po-size');
+            const allocsEl = document.getElementById('ai-ctx-allocs');
+            const landedEl = document.getElementById('ai-ctx-landed');
+
+            if (revEl) revEl.textContent = formatUSD(totalRev);
+            if (gpEl) gpEl.textContent = `${formatUSD(totalGP)} (${totalRev > 0 ? Math.round(totalGP/totalRev*100) : 0}%)`;
+            if (troughEl) {
+                troughEl.textContent = formatUSD(troughValue);
+                troughEl.style.color = troughValue < 0 ? 'var(--red-600)' : 'var(--green-700)';
+            }
+            if (lostEl) {
+                lostEl.textContent = formatUSD(lostSalesVal);
+                lostEl.style.color = lostSalesVal > 0 ? 'var(--red-600)' : 'var(--green-700)';
+            }
+            if (poEl) poEl.textContent = `${formatNum(AppState.masterUnits)} units`;
+            if (allocsEl) allocsEl.textContent = `${AppState.allocations[0]}% / ${AppState.allocations[1]}% / ${AppState.allocations[2]}%`;
+            if (landedEl) landedEl.textContent = formatUSD(AppState.landedBuffer);
+        }
+
+        function submitAIShortcut(promptText, requiresGrounding = false) {
+            const promptInput = document.getElementById('input-ai-prompt');
+            const groundingCheckbox = document.getElementById('ai-toggle-grounding');
+            if (promptInput) promptInput.value = promptText;
+            if (groundingCheckbox) groundingCheckbox.checked = requiresGrounding;
+            submitAICustomPrompt();
+        }
+
+        async function submitAICustomPrompt() {
+            const promptInput = document.getElementById('input-ai-prompt');
+            const chatLog = document.getElementById('ai-chat-log');
+            const submitBtn = document.getElementById('btn-ai-submit');
+            const groundingCheckbox = document.getElementById('ai-toggle-grounding');
+            const citationsContainer = document.getElementById('ai-citations-container');
+            const citationsLinks = document.getElementById('ai-citations-links');
+            const keyInput = document.getElementById('input-ai-api-key');
+
+            if (!promptInput) return;
+            const promptText = promptInput.value.trim();
+            if (!promptText) return;
+
+            // Append User Question Bubble
+            const userBubble = document.createElement('div');
+            userBubble.className = 'chat-bubble user';
+            userBubble.textContent = promptText;
+            chatLog.appendChild(userBubble);
+            chatLog.scrollTop = chatLog.scrollHeight;
+
+            promptInput.value = '';
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Thinking... ⏳';
+
+            // System instructions guiding executive persona
+            const systemPrompt = `You are a world-class strategic CFO and Supply Chain Consultant for Scanmarker. 
+Your target is to inspect the operational planning inputs provided by the user and produce professional, risk-mitigated corporate advice.
+Always anchor your advice to the Scanmarker Single Source of Truth (SSOT). Keep your reports structured and action-oriented. 
+Use Markdown lists and tables to represent quantitative analyses. If lost sales occur, explicitly outline allocation shifts.`;
+
+            // Compile live context data
+            const out = runConsolidatedSolver(AppState);
+            const contextData = getSerializedAppState(out);
+            const fullQuery = `Use this live solver data to resolve my question:\n\n${contextData}\n\nQuestion: ${promptText}`;
+
+            // Check for Web Grounding Google Search
+            const enableGrounding = groundingCheckbox ? groundingCheckbox.checked : false;
+
+            // Prepare Payload
+            const payload = {
+                contents: [{ parts: [{ text: fullQuery }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                }
+            };
+
+            if (enableGrounding) {
+                payload.tools = [{ "google_search": {} }];
+            }
+
+            // Clean API Key references to enable seamless Canvas auto-injection on empty string
+            const apiKey = ""; 
+            const userApiKey = keyInput ? keyInput.value.trim() : "";
+            const activeKey = userApiKey || apiKey;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${activeKey}`;
+
+            // Implement Exponential Backoff
+            let delay = 1000;
+            let success = false;
+            let response = null;
+
+            for (let attempt = 0; attempt < 4; attempt++) {
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) {
+                        success = true;
+                        break;
+                    }
+                } catch (err) {
+                    // Retry silently
+                }
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay *= 2;
+            }
+
+            if (success && response) {
+                try {
+                    const result = await response.json();
+                    const candidate = result.candidates?.[0];
+                    const generatedText = candidate?.content?.parts?.[0]?.text;
+
+                    if (generatedText) {
+                        // Render formatted Markdown response
+                        const aiBubble = document.createElement('div');
+                        aiBubble.className = 'chat-bubble assistant';
+                        aiBubble.innerHTML = simpleMarkdownToHTML(generatedText);
+                        chatLog.appendChild(aiBubble);
+
+                        // Handle Google Search citations
+                        let sources = [];
+                        const groundingMetadata = candidate.groundingMetadata;
+                        if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                            sources = groundingMetadata.groundingAttributions
+                                .map(attribution => ({
+                                    uri: attribution.web?.uri,
+                                    title: attribution.web?.title,
+                                }))
+                                .filter(source => source.uri && source.title);
+                        }
+
+                        if (sources.length > 0 && citationsContainer && citationsLinks) {
+                            citationsContainer.classList.remove('hidden');
+                            citationsLinks.innerHTML = sources.map(src => `
+                                <a href="${src.uri}" target="_blank" class="ai-citation-link">${src.title}</a>
+                            `).join(' ');
+                        } else if (citationsContainer) {
+                            citationsContainer.classList.add('hidden');
+                        }
+
+                    } else {
+                        appendErrorBubble(chatLog, "No response returned from the model. Please check query structure.");
+                    }
+                } catch (e) {
+                    appendErrorBubble(chatLog, "Error parsing model results. Please try again.");
+                }
+            } else {
+                appendErrorBubble(chatLog, "Connection to Gemini failed. Ensure your browser is online, or input a valid Custom API key above.");
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Send 🚀';
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        function appendErrorBubble(chatLog, text) {
+            const errBubble = document.createElement('div');
+            errBubble.className = 'chat-bubble system';
+            errBubble.innerHTML = `⚠️ <strong>Error:</strong> ${text}`;
+            chatLog.appendChild(errBubble);
+        }
+
+        // Helper: Simple parser mapping basic markdown to visual HTML elements safely
+        function simpleMarkdownToHTML(md) {
+            let html = md
+                .replace(/### (.*?)\n/g, '<h4 style="margin: 12px 0 4px; font-weight: 800; color: var(--navy-900);">$1</h4>')
+                .replace(/## (.*?)\n/g, '<h3 style="margin: 14px 0 6px; font-weight: 800; color: var(--navy-900);">$1</h3>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`([^`]+)`/g, '<code style="background:var(--slate-200); padding:2px 4px; border-radius:3px;">$1</code>')
+                .replace(/^\s*[-*]\s+(.*?)$/gm, '<li style="margin-left:14px; list-style-type:disc; padding-bottom:3px;">$1</li>');
+
+            return html.replace(/\n/g, '<br>');
+        }
+    </script>
+</body>
+</html>
