@@ -1,0 +1,161 @@
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Interactive simulator showing how falling per-token prices collide with exploding token volume, projecting total inference spend through 2028.</h2>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px 24px;margin:0 0 1.5rem;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <label style="font-size:13px;color:var(--text-secondary);width:150px;flex-shrink:0;">Token growth /yr</label>
+    <input type="range" min="5" max="30" step="1" value="12" id="growth" style="flex:1;" />
+    <span style="font-size:13px;font-weight:500;min-width:36px;text-align:right;" id="growth-out">12x</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <label style="font-size:13px;color:var(--text-secondary);width:150px;flex-shrink:0;">Price decline /yr</label>
+    <input type="range" min="5" max="10" step="0.5" value="7" id="decline" style="flex:1;" />
+    <span style="font-size:13px;font-weight:500;min-width:36px;text-align:right;" id="decline-out">7x</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <label style="font-size:13px;color:var(--text-secondary);width:150px;flex-shrink:0;">Avg GPU utilization</label>
+    <input type="range" min="20" max="80" step="5" value="45" id="util" style="flex:1;" />
+    <span style="font-size:13px;font-weight:500;min-width:36px;text-align:right;" id="util-out">45%</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <label style="font-size:13px;color:var(--text-secondary);width:150px;flex-shrink:0;">Hidden infra overhead</label>
+    <input type="range" min="0" max="50" step="5" value="20" id="overhead" style="flex:1;" />
+    <span style="font-size:13px;font-weight:500;min-width:36px;text-align:right;" id="overhead-out">20%</span>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:0 0 2rem;">
+  <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">2028 annual spend</div>
+    <div style="font-size:24px;font-weight:500;" id="stat-spend">—</div>
+  </div>
+  <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">Spend vs 2025</div>
+    <div style="font-size:24px;font-weight:500;" id="stat-mult">—</div>
+  </div>
+  <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">Effective $/M tok 2028</div>
+    <div style="font-size:24px;font-weight:500;" id="stat-price">—</div>
+  </div>
+  <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:4px;">Budget inflection</div>
+    <div style="font-size:24px;font-weight:500;" id="stat-inflect">—</div>
+  </div>
+</div>
+
+<div style="display:flex;gap:16px;font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
+  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#2a78d6;"></span>List price (solid)</span>
+  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#eb6834;"></span>Effective cost, dashed (util + overhead)</span>
+</div>
+<div style="position:relative;width:100%;height:260px;margin-bottom:2rem;">
+  <canvas id="priceChart" role="img" aria-label="Line chart of per-million-token cost declining over time, log scale, list price versus effective cost">Per-token cost decay from 2025 through 2028.</canvas>
+</div>
+
+<div style="display:flex;gap:16px;font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
+  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#1baf7a;"></span>Total annual spend</span>
+  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#e34948;"></span>Inflection (marker)</span>
+</div>
+<div style="position:relative;width:100%;height:280px;">
+  <canvas id="budgetChart" role="img" aria-label="Line chart of total annualized inference spend through 2028 with a marker at the inflection point where volume growth overtakes price decline">Total budget curve 2025 through 2028.</canvas>
+</div>
+
+<div style="margin-top:1.5rem;">
+  <button onclick="sendPrompt('Given the current simulator settings, what levers would you pull first to flatten the total spend curve?')">Ask Claude to analyze this scenario ↗</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const Q = [];
+for (let y = 2025; y <= 2028; y++) for (let q = 1; q <= 4; q++) Q.push("Q" + q + " '" + String(y).slice(2));
+const N = Q.length;
+const BASE_PRICE = 8.0;
+const PRICE_FLOOR = 0.05;
+const BASE_TOKENS = 50e9;
+const IDEAL_UTIL = 0.80;
+
+const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+const css = getComputedStyle(document.documentElement);
+const inkMuted = css.getPropertyValue('--text-muted').trim() || '#898781';
+const grid = isDark ? '#2c2c2a' : '#e1e0d9';
+
+function model() {
+  const g = +document.getElementById('growth').value;
+  const d = +document.getElementById('decline').value;
+  const u = +document.getElementById('util').value / 100;
+  const oh = +document.getElementById('overhead').value / 100;
+  const penalty = (IDEAL_UTIL / u) * (1 + oh);
+  const listP = [], effP = [], vol = [], spend = [];
+  for (let i = 0; i < N; i++) {
+    const t = i / 4;
+    const lp = Math.max(PRICE_FLOOR, BASE_PRICE / Math.pow(d, t));
+    listP.push(lp);
+    effP.push(lp * penalty);
+    vol.push(BASE_TOKENS * Math.pow(g, t));
+    spend.push(vol[i] / 1e6 * effP[i]);
+  }
+  let minI = 0;
+  for (let i = 1; i < N; i++) if (spend[i] < spend[minI]) minI = i;
+  return { g, d, listP, effP, spend, minI };
+}
+
+function fmtUsd(v) {
+  if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+  return '$' + Math.round(v / 1e3).toLocaleString() + 'K';
+}
+
+const axisOpts = { ticks: { color: inkMuted, font: { size: 11 } }, grid: { color: grid } };
+
+const priceChart = new Chart(document.getElementById('priceChart'), {
+  type: 'line',
+  data: { labels: Q, datasets: [
+    { label: 'List', data: [], borderColor: '#2a78d6', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+    { label: 'Effective', data: [], borderColor: '#eb6834', borderWidth: 2, borderDash: [6,4], pointRadius: 0, tension: 0.3 }
+  ]},
+  options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label + ': $' + c.parsed.y.toFixed(3) + '/M tok' } } },
+    scales: { x: { ticks: { color: inkMuted, font: { size: 11 }, autoSkip: false, maxRotation: 45 }, grid: { display: false } },
+      y: { type: 'logarithmic', ...axisOpts, ticks: { color: inkMuted, font: { size: 11 }, callback: v => '$' + (v >= 1 ? v.toFixed(0) : v.toFixed(2)) } } }
+  }
+});
+
+const budgetChart = new Chart(document.getElementById('budgetChart'), {
+  type: 'line',
+  data: { labels: Q, datasets: [
+    { label: 'Annual spend', data: [], borderColor: '#1baf7a', backgroundColor: 'rgba(27,175,122,0.10)', fill: true, borderWidth: 2, pointRadius: [], pointBackgroundColor: [], tension: 0.3 }
+  ]},
+  options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => 'Spend: ' + fmtUsd(c.parsed.y) } } },
+    scales: { x: { ticks: { color: inkMuted, font: { size: 11 }, autoSkip: false, maxRotation: 45 }, grid: { display: false } },
+      y: { ...axisOpts, ticks: { color: inkMuted, font: { size: 11 }, callback: v => fmtUsd(v) } } }
+  }
+});
+
+function render() {
+  const m = model();
+  document.getElementById('growth-out').textContent = m.g + 'x';
+  document.getElementById('decline-out').textContent = m.d + 'x';
+  document.getElementById('util-out').textContent = document.getElementById('util').value + '%';
+  document.getElementById('overhead-out').textContent = document.getElementById('overhead').value + '%';
+
+  priceChart.data.datasets[0].data = m.listP;
+  priceChart.data.datasets[1].data = m.effP;
+  priceChart.update('none');
+
+  const radii = new Array(N).fill(0);
+  const colors = new Array(N).fill('#1baf7a');
+  radii[m.minI] = 6;
+  colors[m.minI] = '#e34948';
+  budgetChart.data.datasets[0].data = m.spend;
+  budgetChart.data.datasets[0].pointRadius = radii;
+  budgetChart.data.datasets[0].pointBackgroundColor = colors;
+  budgetChart.update('none');
+
+  document.getElementById('stat-spend').textContent = fmtUsd(m.spend[N-1] );
+  document.getElementById('stat-mult').textContent = Math.round(m.spend[N-1] / m.spend[0]).toLocaleString() + 'x';
+  document.getElementById('stat-price').textContent = '$' + m.effP[N-1].toFixed(2) + '/M';
+  document.getElementById('stat-inflect').textContent = m.minI === 0 ? 'Day one' : Q[m.minI];
+}
+
+['growth','decline','util','overhead'].forEach(id => document.getElementById(id).addEventListener('input', render));
+render();
+</script>
